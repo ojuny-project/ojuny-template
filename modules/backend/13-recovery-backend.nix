@@ -15,10 +15,11 @@
       recoveryFile = "${recoveryDir}/ojuny-recovery.efi";
       manifest = "/var/lib/ojuny/recovery.json";
 
+      ukify = self.packages.${pkgs.system}.ojuny-ukify;
+
       recovery = pkgs.writeShellApplication {
         name = "ojuny-recovery";
         runtimeInputs = with pkgs; [
-          binutils
           coreutils
           findutils
           gawk
@@ -67,7 +68,7 @@
               OJUNY_RECOVERY_FILE = recoveryFile;
               OJUNY_MANIFEST = manifest;
               OJUNY_PKI_BUNDLE = pkiBundle;
-              OJUNY_STUB = "${pkgs.systemd}/lib/systemd/boot/efi/linuxx64.efi.stub";
+              OJUNY_UKIFY = "${ukify}/bin/ukify";
             };
             serviceConfig = {
               Type = "oneshot";

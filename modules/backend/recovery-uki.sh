@@ -2,7 +2,16 @@ recovery_dir="${OJUNY_RECOVERY_DIR:?}"
 recovery_file="${OJUNY_RECOVERY_FILE:?}"
 manifest="${OJUNY_MANIFEST:?}"
 pki_bundle="${OJUNY_PKI_BUNDLE:-}"
-stub="${OJUNY_STUB:?}"
+ukify="${OJUNY_UKIFY:?}"
+sbctl_conf="$(dirname "$manifest")/sbctl.conf"
+
+sbctl_cmd() {
+    if [ -f "$sbctl_conf" ]; then
+        sbctl --config "$sbctl_conf" "$@"
+    else
+        sbctl "$@"
+    fi
+}
 
 install -d "$recovery_dir" "$(dirname "$manifest")"
 
@@ -16,8 +25,10 @@ if [ ! -f "$boot_json" ]; then
     exit 1
 fi
 
+build_id="ukify-v1"
 marker="$recovery_dir/.ojuny-recovery-version"
-if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "$toplevel" ] || [ ! -f "$recovery_file" ]; then
+marker_value="$build_id:$toplevel"
+if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "$marker_value" ] || [ ! -f "$recovery_file" ]; then
     kernel="$(jq -r '."org.nixos.bootspec.v1".kernel // empty' "$boot_json")"
     initrd="$(jq -r '."org.nixos.bootspec.v1".initrd // empty' "$boot_json")"
     init="$(jq -r '."org.nixos.bootspec.v1".init // empty' "$boot_json")"
@@ -28,33 +39,52 @@ if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "$toplevel" ] || [ ! -f "$recov
     fi
     cmdline="init=$init${params:+ $params}"
 
-    cmdline_file="$(mktemp)"
-    trap 'rm -f "$cmdline_file"' EXIT
-    printf '%s' "$cmdline" >"$cmdline_file"
-
-    objcopy_args=(
-        --add-section ".osrel=/etc/os-release" --change-section-vma .osrel=0x20000
-        --add-section ".cmdline=$cmdline_file" --change-section-vma .cmdline=0x30000
-        --add-section ".linux=$kernel" --change-section-vma .linux=0x40000
+    ukify_args=(
+        build
+        --linux "$kernel"
+        --cmdline "$cmdline"
+        --os-release /etc/os-release
+        --output "$recovery_file.tmp"
     )
     if [ -n "$initrd" ]; then
-        objcopy_args+=(--add-section ".initrd=$initrd" --change-section-vma .initrd=0x3000000)
+        ukify_args+=(--initrd "$initrd")
     fi
 
-    objcopy "${objcopy_args[@]}" "$stub" "$recovery_file.tmp"
+    "$ukify" "${ukify_args[@]}"
     install -m 0644 "$recovery_file.tmp" "$recovery_file"
     rm -f "$recovery_file.tmp"
-    printf '%s\n' "$toplevel" >"$marker"
+    printf '%s\n' "$marker_value" >"$marker"
 fi
 
 signed="not-required"
 if [ -d "$pki_bundle/keys" ]; then
-    if sbctl verify "$recovery_file" >/dev/null 2>&1; then
-        signed="signed"
-    elif sbctl sign -s "$recovery_file" >/dev/null 2>&1; then
-        signed="signed"
-    else
-        signed="unsigned"
+    install -d "$(dirname "$sbctl_conf")"
+    {
+        printf 'keydir: %s/keys\n' "$pki_bundle"
+        printf 'guid: %s/GUID\n' "$pki_bundle"
+        printf 'files_db: %s/files.json\n' "$pki_bundle"
+        printf 'bundles_db: %s/bundles.json\n' "$pki_bundle"
+    } >"$sbctl_conf.tmp"
+    mv "$sbctl_conf.tmp" "$sbctl_conf"
+
+    key_marker="$recovery_dir/.ojuny-recovery-key"
+    key_id="$(sha256sum "$pki_bundle/keys/db/db.pem" 2>/dev/null | cut -d" " -f1 || true)"
+    if sbctl_cmd verify "$recovery_file" >/dev/null 2>&1
+    then
+        if [ -z "$key_id" ] || { [ -f "$key_marker" ] && [ "$(cat "$key_marker")" = "$key_id" ]; }; then
+            signed="signed"
+        fi
+    fi
+    if [ "$signed" != "signed" ]; then
+        if sbctl_cmd sign -s "$recovery_file"; then
+            if [ -n "$key_id" ]; then
+                printf '%s\n' "$key_id" >"$key_marker"
+            fi
+            signed="signed"
+        else
+            echo "ojuny-recovery: failed to sign $recovery_file" >&2
+            signed="unsigned"
+        fi
     fi
 fi
 

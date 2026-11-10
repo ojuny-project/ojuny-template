@@ -7,12 +7,21 @@ can_touch_efi="${OJUNY_CAN_TOUCH_EFI:-false}"
 pki_bundle="${OJUNY_PKI_BUNDLE:-}"
 state_dir="/var/lib/ojuny"
 manifest="$state_dir/multiboot.json"
+sbctl_conf="$state_dir/sbctl.conf"
 refind_bin="$helper_dir/refind_x64.efi"
 refind_conf="$helper_dir/refind.conf"
 generated_conf="$helper_dir/ojuny-generated.conf"
 
 targets_file=""
 mounts=()
+
+sbctl_cmd() {
+    if [ -f "$sbctl_conf" ]; then
+        sbctl --config "$sbctl_conf" "$@"
+    else
+        sbctl "$@"
+    fi
+}
 
 cleanup_mounts() {
     local mount
@@ -84,7 +93,7 @@ write_entry() {
 write_base_config() {
     local content
 
-    content="$(printf '%s\n' 'timeout 10' 'use_nvram false' 'scanfor internal,manual,firmware' 'include ojuny-generated.conf')"
+    content="$(printf '%s\n' 'timeout 0' 'use_nvram false' 'scanfor internal,manual,firmware' 'include ojuny-generated.conf')"
     if [ ! -f "$refind_conf" ]; then
         printf '%s\n' "$content" >"$refind_conf"
     fi
@@ -96,6 +105,7 @@ write_generated_config() {
     local bitlocker="$3"
 
     {
+        printf 'timeout 0\n'
         if [ -n "$volumes" ]; then
             printf 'dont_scan_volumes %s\n' "$volumes"
         fi
@@ -105,6 +115,9 @@ write_generated_config() {
         if [ "$bitlocker" = "true" ]; then
             printf 'dont_scan_files EFI/Microsoft/Boot/bootmgfw.efi\n'
         fi
+        printf 'menuentry "Back to Ojuny" {\n'
+        printf '    loader /EFI/systemd/systemd-bootx64.efi\n'
+        printf '}\n'
     } >"$generated_conf.tmp"
 
     if [ ! -f "$generated_conf" ] || ! cmp -s "$generated_conf.tmp" "$generated_conf"; then
@@ -118,10 +131,33 @@ sign_helper() {
     [ -f "$refind_bin" ] || return 0
     [ -n "$pki_bundle" ] || return 0
     [ -d "$pki_bundle/keys" ] || return 0
-    if sbctl verify "$refind_bin" >/dev/null 2>&1; then
-        return 0
+
+    install -d "$(dirname "$sbctl_conf")"
+    {
+        printf 'keydir: %s/keys\n' "$pki_bundle"
+        printf 'guid: %s/GUID\n' "$pki_bundle"
+        printf 'files_db: %s/files.json\n' "$pki_bundle"
+        printf 'bundles_db: %s/bundles.json\n' "$pki_bundle"
+    } >"$sbctl_conf.tmp"
+    mv "$sbctl_conf.tmp" "$sbctl_conf"
+
+    local key_marker="$helper_dir/.ojuny-refind-key"
+    local key_id
+    key_id="$(sha256sum "$pki_bundle/keys/db/db.pem" 2>/dev/null | cut -d" " -f1 || true)"
+    if sbctl_cmd verify "$refind_bin" >/dev/null 2>&1
+    then
+        if [ -z "$key_id" ] || { [ -f "$key_marker" ] && [ "$(cat "$key_marker")" = "$key_id" ]; }; then
+            return 0
+        fi
     fi
-    sbctl sign -s "$refind_bin" >/dev/null 2>&1 || true
+
+    if sbctl_cmd sign -s "$refind_bin"; then
+        if [ -n "$key_id" ]; then
+            printf '%s\n' "$key_id" >"$key_marker"
+        fi
+    else
+        echo "ojuny-multiboot: failed to sign $refind_bin" >&2
+    fi
 }
 
 helper_state() {
@@ -129,7 +165,7 @@ helper_state() {
         printf 'not-required\n'
         return 0
     fi
-    if sbctl verify "$refind_bin" >/dev/null 2>&1; then
+    if sbctl_cmd verify "$refind_bin" >/dev/null 2>&1; then
         printf 'signed\n'
     else
         printf 'unsigned\n'
@@ -145,6 +181,7 @@ ojuny_firmware_labels() {
             line = $0
             label = line
             sub(/^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]\*?[[:space:]]*/, "", label)
+            sub(/\t.*$/, "", label)
             sub(/[[:space:]]+HD\(.*$/, "", label)
             if (index(line, uuid) > 0 && label != "") print label
         }
