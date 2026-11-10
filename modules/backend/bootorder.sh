@@ -87,9 +87,25 @@ is_internal_os() {
     return 1
 }
 
+has_number() {
+    case ",$2," in
+    *",$1,"*) return 0 ;;
+    esac
+    return 1
+}
+
+apply_order() {
+    local new="$1"
+    echo "ojuny-bootorder: setting BootOrder to $new"
+    if ! efibootmgr -o "$new"; then
+        echo "ojuny-bootorder: failed to set BootOrder" >&2
+    fi
+}
+
 order="$(efibootmgr 2>/dev/null | sed -n 's/^BootOrder: //p' | head -n1 || true)"
 [ -n "$order" ] || exit 0
 IFS=',' read -r -a current_order <<<"$order"
+current_numbers="$(IFS=,; printf '%s' "${current_order[*]}")"
 
 if [ "$mode" = "install" ]; then
     previous_file="${OJUNY_BOOTORDER_PREVIOUS:-}"
@@ -100,14 +116,6 @@ if [ "$mode" = "install" ]; then
     [ -n "$previous_order" ] || exit 0
     IFS=',' read -r -a previous <<<"$previous_order"
 
-    has_number() {
-        case ",$2," in
-        *",$1,"*) return 0 ;;
-        esac
-        return 1
-    }
-
-    current_numbers="$(IFS=,; printf '%s' "${current_order[*]}")"
     previous_numbers="$(IFS=,; printf '%s' "${previous[*]}")"
 
     restored=()
@@ -148,8 +156,11 @@ if [ "$mode" = "install" ]; then
     fi
 
     new="$(IFS=,; printf '%s' "${new_order[*]}")"
+    echo "ojuny-bootorder: previous=$previous_order"
+    echo "ojuny-bootorder: current=$order"
+    echo "ojuny-bootorder: target=$new"
     if [ "$new" != "$order" ]; then
-        efibootmgr -o "$new" >/dev/null 2>&1 || true
+        apply_order "$new"
     fi
     exit 0
 fi
@@ -158,6 +169,42 @@ desired=("$ojuny_num")
 if [ "$recovery_enabled" = "true" ] && [ -n "$recovery_num" ]; then
     desired+=("$recovery_num")
 fi
+
+missing=0
+for ours in "${desired[@]}"; do
+    has_number "$ours" "$current_numbers" || missing=1
+done
+
+if [ "$missing" -eq 1 ]; then
+    restored=()
+    for number in "${current_order[@]}"; do
+        is_ojuny_entry "$number" && continue
+        restored+=("$number")
+    done
+
+    new_order=()
+    inserted=0
+    for number in "${restored[@]}"; do
+        if [ "$inserted" -eq 0 ] && is_internal_os "$number"; then
+            new_order+=("${desired[@]}")
+            inserted=1
+        fi
+        new_order+=("$number")
+    done
+    if [ "$inserted" -eq 0 ]; then
+        new_order+=("${desired[@]}")
+    fi
+
+    new="$(IFS=,; printf '%s' "${new_order[*]}")"
+    echo "ojuny-bootorder: current=$order"
+    echo "ojuny-bootorder: Ojuny entries missing from BootOrder"
+    echo "ojuny-bootorder: target=$new"
+    if [ "$new" != "$order" ]; then
+        apply_order "$new"
+    fi
+    exit 0
+fi
+
 internal_total=0
 for number in "${current_order[@]}"; do
     if is_ojuny_entry "$number"; then
@@ -183,5 +230,7 @@ done
 
 new="$(IFS=,; printf '%s' "${new_order[*]}")"
 if [ "$new" != "$order" ]; then
-    efibootmgr -o "$new" >/dev/null 2>&1 || true
+    echo "ojuny-bootorder: current=$order"
+    echo "ojuny-bootorder: target=$new"
+    apply_order "$new"
 fi

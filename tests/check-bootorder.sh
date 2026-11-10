@@ -134,7 +134,7 @@ run_scenario() {
     numbers_of "$tokens" >"$WORK/state/order"
 
     printf '%s: ' "$name"
-    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" >/dev/null
     local actual
     actual="$(tokens_of "$(cat "$WORK/state/order")")"
     if [ "$actual" = "$expected" ]; then
@@ -161,7 +161,7 @@ run_scenario() {
 
     : >"$WORK/state/order_writes"
     : >"$WORK/state/creates"
-    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" >/dev/null
     [ ! -s "$WORK/state/order_writes" ] || fail "second run reordered again"
     [ "$(tokens_of "$(cat "$WORK/state/order")")" = "$expected" ] || fail "order changed on second run"
 }
@@ -197,7 +197,7 @@ run_install_scenario() {
     OJUNY_BOOTORDER_MODE=install \
         OJUNY_RECOVERY_ENABLED="$recovery" \
         OJUNY_BOOTORDER_PREVIOUS="$WORK/state/previous" \
-        bash "$SCRIPT"
+        bash "$SCRIPT" >/dev/null
     actual="$(tokens_of "$(cat "$WORK/state/order")")"
     if [ "$actual" = "$expected" ]; then
         printf '%s\n' "$actual"
@@ -210,8 +210,35 @@ run_install_scenario() {
     OJUNY_BOOTORDER_MODE=install \
         OJUNY_RECOVERY_ENABLED="$recovery" \
         OJUNY_BOOTORDER_PREVIOUS="$WORK/state/previous" \
-        bash "$SCRIPT"
+        bash "$SCRIPT" >/dev/null
     [ ! -s "$WORK/state/order_writes" ] || fail "second install run reordered again"
+    [ "$(tokens_of "$(cat "$WORK/state/order")")" = "$expected" ] || fail "order changed on second run"
+}
+
+
+run_missing_scenario() {
+    local name="$1" order_tokens="$2" entries_tokens="$3" expected="$4" recovery="${5:-true}"
+    local entries actual
+
+    entries="$(all_entries "$entries_tokens")"
+    printf '%s\n' "$entries" >"$WORK/state/entries"
+    : >"$WORK/state/creates"
+    : >"$WORK/state/order_writes"
+    numbers_of "$order_tokens" >"$WORK/state/order"
+
+    printf '%s: ' "$name"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" >/dev/null
+    actual="$(tokens_of "$(cat "$WORK/state/order")")"
+    if [ "$actual" = "$expected" ]; then
+        printf '%s\n' "$actual"
+    else
+        printf '%s (expected %s)\n' "$actual" "$expected"
+        fail "expected $expected, got $actual"
+    fi
+
+    : >"$WORK/state/order_writes"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" >/dev/null
+    [ ! -s "$WORK/state/order_writes" ] || fail "second run reordered again"
     [ "$(tokens_of "$(cat "$WORK/state/order")")" = "$expected" ] || fail "order changed on second run"
 }
 
@@ -231,6 +258,10 @@ run_scenario "ojuny entry missing" WU WU
 run_scenario "only ojuny and recovery" RO OR
 run_scenario "stale recovery entry on another ESP" WSO OSW true true
 run_scenario "usb, ojuny, recovery, ubuntu, windows, pxe" UORLWN UORLWN
+run_missing_scenario "ojuny entry present but not in BootOrder" WU OWU OWU
+run_missing_scenario "ojuny entry missing with usb present" UW OUW UOW
+run_missing_scenario "ojuny and recovery missing from BootOrder" WU ORWU ORWU
+run_missing_scenario "recovery disabled, ojuny missing from BootOrder" WU OWU OWU false
 
 run_install_scenario "install: new entry at top" UW OUW UOW
 run_install_scenario "install: fallback entry after new entry" UW OFUW UOFW

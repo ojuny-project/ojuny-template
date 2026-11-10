@@ -36,6 +36,8 @@ External entries keep their exact positions. Other internal systems keep their
 relative order below the two Ojuny entries. The service rewrites only the slots
 already occupied by internal OS entries and does nothing when the order is
 already correct, so a plugged-in USB drive is not forced above or below ojuny.
+If an entry exists but is missing from `BootOrder`, the service inserts it above
+the first internal entry and logs the change to the journal.
 
 If Windows resets the boot order, boot ojuny once from the firmware menu. The
 service restores the order.

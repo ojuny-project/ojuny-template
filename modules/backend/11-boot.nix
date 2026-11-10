@@ -169,6 +169,8 @@
       bootorder = self.packages.${pkgs.system}.ojuny-bootorder;
     in
     {
+      environment.systemPackages = [ pkgs.efibootmgr ];
+
       systemd.services.ojuny-bootorder = {
         description = "Keep the Ojuny entries first among the internal boot entries";
         wantedBy = [ "multi-user.target" ];

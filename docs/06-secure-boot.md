@@ -174,13 +174,25 @@ key state from `bootctl`, `sbctl status` and `sbctl verify`, and refuses to run
 unless the machine booted in UEFI mode.
 
 The setup dialog is stage-driven, not a fixed script. It derives the next step
-from live state: keys, configuration, rebuild, firmware setup, enrollment,
-verification, and done. A reboot or a firmware change resumes at the right step
-instead of restarting. Existing keys in `/var/lib/sbctl` are kept unless you
-explicitly remove them.
+from live state: keys, configuration, rebuild, clearing the firmware keys,
+enrollment, enabling Secure Boot, verification, and done. A reboot or a firmware
+change resumes at the right step instead of restarting.
 
-Privileged commands run through the configured terminal command, so the GUI
-never sees the sudo password.
+Enrollment is only offered when `sbctl status` reports `Setup Mode: Enabled`.
+If the firmware is in user mode with old or different keys, the flow shows a
+Reboot into firmware step with instructions for resetting to Setup Mode. After
+enrollment it shows a separate Reboot into firmware step for enabling Secure
+Boot. That step does not tell you to reset to Setup Mode.
+
+The card also has `Repair Secure Boot keys`. In Setup Mode it re-enrolls the
+current `/var/lib/sbctl` bundle. Otherwise it shows the reset instructions and
+a Reboot to firmware button. This is the recovery path when Secure Boot stops
+booting after a reinstall or a key change.
+
+Existing keys in `/var/lib/sbctl` are kept unless you explicitly remove them.
+Key creation and enrollment run through `pkexec` and the GUI checks the exit
+status, so a failed `sbctl enroll-keys` stops the flow. The rebuild runs through
+the configured terminal command.
 
 ## 9. Boundary
 
