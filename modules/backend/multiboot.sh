@@ -100,25 +100,7 @@ write_base_config() {
 }
 
 write_generated_config() {
-    local volumes="$1"
-    local firmware_filters="$2"
-    local bitlocker="$3"
-
-    {
-        printf 'timeout 0\n'
-        if [ -n "$volumes" ]; then
-            printf 'dont_scan_volumes %s\n' "$volumes"
-        fi
-        if [ -n "$firmware_filters" ]; then
-            printf 'dont_scan_firmware %s\n' "$firmware_filters"
-        fi
-        if [ "$bitlocker" = "true" ]; then
-            printf 'dont_scan_files EFI/Microsoft/Boot/bootmgfw.efi\n'
-        fi
-        printf 'menuentry "Back to Ojuny" {\n'
-        printf '    loader /EFI/systemd/systemd-bootx64.efi\n'
-        printf '}\n'
-    } >"$generated_conf.tmp"
+    printf 'timeout 0\n' >"$generated_conf.tmp"
 
     if [ ! -f "$generated_conf" ] || ! cmp -s "$generated_conf.tmp" "$generated_conf"; then
         mv "$generated_conf.tmp" "$generated_conf"
@@ -126,7 +108,6 @@ write_generated_config() {
         rm -f "$generated_conf.tmp"
     fi
 }
-
 sign_helper() {
     [ -f "$refind_bin" ] || return 0
     [ -n "$pki_bundle" ] || return 0
@@ -170,22 +151,6 @@ helper_state() {
     else
         printf 'unsigned\n'
     fi
-}
-
-ojuny_firmware_labels() {
-    local uuid="$1"
-
-    [ -n "$uuid" ] || return 0
-    efibootmgr -v 2>/dev/null | awk -v uuid="$uuid" '
-        /^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]/ {
-            line = $0
-            label = line
-            sub(/^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]\*?[[:space:]]*/, "", label)
-            sub(/\t.*$/, "", label)
-            sub(/[[:space:]]+HD\(.*$/, "", label)
-            if (index(line, uuid) > 0 && label != "") print label
-        }
-    '
 }
 
 ensure_windows_entry() {
@@ -313,10 +278,6 @@ if [ -n "$ojuny_esp_source" ]; then
 fi
 ojuny_partuuid="$(esp_partuuid)"
 ojuny_boot_partuuid="$(boot_partuuid)"
-hide_volumes="$ojuny_partuuid"
-if [ -n "$ojuny_boot_partuuid" ] && [ "$ojuny_boot_partuuid" != "$ojuny_partuuid" ]; then
-    hide_volumes="${hide_volumes:+$hide_volumes,}$ojuny_boot_partuuid"
-fi
 
 targets_file="$(mktemp)"
 bitlocker="false"
@@ -342,13 +303,7 @@ done < <(list_esps)
 
 sort -u "$targets_file" -o "$targets_file"
 
-ojuny_labels="$(ojuny_firmware_labels "$ojuny_partuuid" | paste -sd, -)"
-firmware_filters="$ojuny_labels"
-if [ "$bitlocker" != "true" ]; then
-    firmware_filters="${firmware_filters:+$firmware_filters,}Windows Boot Manager"
-fi
-
-write_generated_config "$hide_volumes" "$firmware_filters" "$bitlocker"
+write_generated_config
 
 jq -s \
     --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

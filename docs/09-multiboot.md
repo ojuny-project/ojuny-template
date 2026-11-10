@@ -49,8 +49,8 @@ sort-key o_other_systems
 
 `refind.conf` is created only when it does not exist, so its timeout and theme
 can be edited. The service rewrites `ojuny-generated.conf` on every scan. That
-file hides the ojuny ESP to prevent a loop back into systemd-boot, hides the
-ojuny firmware entry, and chooses the Windows entry that is safe for BitLocker.
+file sets `timeout 0`; rEFInd scans every internal ESP and firmware entry. The
+ojuny systemd-boot entry acts as the back button to the previous menu.
 
 ## Secure Boot
 
@@ -70,11 +70,13 @@ must re-enroll their policy after enabling the helper.
 
 ## Windows and BitLocker
 
-Selecting Windows from the helper uses the Windows Boot Manager firmware entry.
+rEFInd lists the Windows Boot Manager firmware entry and the Windows ESP
+loaders. Use the firmware `Windows Boot Manager` entry for BitLocker Windows:
 rEFInd sets `BootNext` and reboots, so the firmware starts Windows directly and
 the BitLocker PCR values stay on the expected path. This costs one visible
-reboot. The direct chainload of `bootmgfw.efi` is hidden when BitLocker is
-detected.
+reboot. The direct chainload of `bootmgfw.efi` or the `BOOTX64.EFI` fallback
+shows the BitLocker password prompt and then fails to load Windows, so it is
+not the supported path.
 
 The service creates the Windows Boot Manager NVRAM entry if it is missing and
 keeps the existing boot order, so ojuny stays first.
