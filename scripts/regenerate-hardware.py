@@ -281,7 +281,7 @@ def root_is_btrfs(hardware):
     ) is not None
 
 
-def luks_device_lines(hardware=""):
+def luks_device_lines():
     """One boot.initrd.luks.devices line per open LUKS device.
 
     The mapper name comes from the crypt node; the UUID is the encrypted
@@ -297,7 +297,7 @@ def luks_device_lines(hardware=""):
         if node.get("type") == "crypt":
             name = node.get("name")
             uuid = parent_uuid or node.get("uuid")
-            if name and uuid and 'boot.initrd.luks.devices."{}"'.format(name) not in hardware:
+            if name and uuid:
                 line = 'boot.initrd.luks.devices."{}".device = "/dev/disk/by-uuid/{}";'.format(
                     name, uuid
                 )
@@ -694,6 +694,12 @@ def main():
 
         with open(hardware_path) as handle:
             hardware = fix_btrfs_subvolumes(handle.read())
+            hardware = re.sub(
+                r'^[ \t]*boot\.initrd\.luks\.devices\.".*?\.device\s*=.*\n?',
+                "",
+                hardware,
+                flags=re.MULTILINE,
+            )
     except Exception as error:
         print("regenerate-hardware: {}".format(error), file=sys.stderr)
         return 1
@@ -716,7 +722,7 @@ def main():
     if args.extra_boot_config:
         with open(args.extra_boot_config) as handle:
             extra_lines = [line.rstrip() for line in handle if line.strip()]
-    extra_lines += luks_device_lines(hardware)
+    extra_lines += luks_device_lines()
 
     facter_path = os.path.join(root, "modules/07-system/facter.json")
     try:
