@@ -190,9 +190,9 @@ a Reboot to firmware button. This is the recovery path when Secure Boot stops
 booting after a reinstall or a key change.
 
 Existing keys in `/var/lib/sbctl` are kept unless you explicitly remove them.
-Key creation and enrollment run through `pkexec` and the GUI checks the exit
-status, so a failed `sbctl enroll-keys` stops the flow. The rebuild runs through
-the configured terminal command.
+Key creation and enrollment run in the configured terminal. Enrollment writes
+a success marker only after `sbctl enroll-keys` succeeds, so a failed enrollment
+does not advance the flow. The rebuild uses the same terminal command.
 
 ## 9. Boundary
 
