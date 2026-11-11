@@ -167,12 +167,17 @@ prepare_args=(
   --hostname "$hostname"
   --state-version "$state_version"
   --hashed-password "$hashed_password"
+  --non-interactive
 )
 if [ "$force" -eq 1 ]; then
   prepare_args+=(--force)
 fi
 
 nix run "$template_ref#prepare-repo" -- "${prepare_args[@]}"
+
+helper="$root/scripts/flake_structure.py"
+user_file="$(python3 "$helper" --root "$root" --non-interactive path --module users --fallback modules/00-user.nix)"
+hardware_file="$(python3 "$helper" --root "$root" --non-interactive path --module hardware --fallback modules/00-hardware.nix)"
 
 if [ "${#ssh_keys[@]}" -gt 0 ]; then
   keys="[\n"
@@ -181,10 +186,10 @@ if [ "${#ssh_keys[@]}" -gt 0 ]; then
   done
   keys+="        ]"
   sed -i "s|openssh.authorizedKeys.keys = \[ \];|openssh.authorizedKeys.keys = $keys;|" \
-    "$root/modules/01-users/01-user.nix"
+    "$user_file"
 fi
 
-mkdir -p "$root/modules/07-system"
+mkdir -p "$(dirname "$hardware_file")"
 
 if [ "$firmware" = "efi" ]; then
   efi=true
@@ -194,7 +199,7 @@ else
   bios=true
 fi
 
-cat >"$root/modules/07-system/00-hardware.nix" <<EOF
+cat >"$hardware_file" <<EOF
 { self, inputs, ... }: {
 
   flake.modules.nixos.system-hardware =
@@ -272,6 +277,13 @@ cat >"$root/modules/07-system/00-hardware.nix" <<EOF
 
 }
 EOF
+
+quirks="$(python3 "$helper" --root "$root" --non-interactive path --module quirks --fallback modules/backend/00-hardware-quirks.nix)"
+imports=(--name system-configuration --name users --name system-hardware --name system-bootloader)
+if [ -f "$quirks" ]; then
+  imports+=(--name system-hardware-quirks)
+fi
+python3 "$helper" --root "$root" --non-interactive ensure-imports "${imports[@]}" >/dev/null
 
 git -C "$root" init -q
 git -C "$root" add -A

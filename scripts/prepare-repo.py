@@ -6,19 +6,13 @@ import re
 import shutil
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import flake_structure
+
 
 def nix_string(value):
     text = str(value).replace("${", "''${")
     return json.dumps(text, ensure_ascii=False)
-
-
-def replace_once(text, pattern, replacement, label, required=False):
-    result, count = re.subn(pattern, replacement, text, count=1)
-    if count != 1:
-        if required:
-            raise RuntimeError("could not set {}".format(label))
-        print("prepare-repo: could not set {}".format(label), file=sys.stderr)
-    return result
 
 
 def user_module(username, fullname, hashed_password, shell, version):
@@ -69,28 +63,6 @@ def user_module(username, fullname, hashed_password, shell, version):
     )
 
 
-def host_module(hostname, runtime_clone):
-    return """{{ self, inputs, ... }}: {{
-
-  flake.nixosConfigurations.{hostname} = inputs.nixpkgs.lib.nixosSystem {{
-    system = "x86_64-linux";
-    modules = [
-      self.modules.nixos.host-imports
-      ({{ lib, ... }}: {{
-        services.simple-nix-update-gui.flakeUri = lib.mkDefault {flake_uri};
-        services.simple-nix-update-gui.clonePath = lib.mkDefault {clone_path};
-      }})
-    ];
-  }};
-
-}}
-""".format(
-        hostname=nix_string(hostname),
-        flake_uri=nix_string("path:" + runtime_clone),
-        clone_path=nix_string(runtime_clone),
-    )
-
-
 def copy_template(template, root, force):
     if not os.path.isdir(template):
         raise RuntimeError("template not found: {}".format(template))
@@ -122,70 +94,50 @@ def copy_template(template, root, force):
 
 
 def configure(args, root):
-    configuration_path = os.path.join(root, "modules/07-system/01-configuration.nix")
-
-    with open(configuration_path) as handle:
-        configuration = handle.read()
-
-    configuration = replace_once(
-        configuration,
-        r'networking\.hostName = "[^"]*";',
-        "networking.hostName = {hostname};".format(
-            hostname=nix_string(args.hostname)
-        ),
-        "networking.hostName",
-        required=True,
+    interactive = not args.non_interactive
+    flake_structure.ensure_configuration(
+        root,
+        {
+            "hostname": args.hostname,
+            "state_version": args.state_version,
+            "timezone": args.timezone,
+            "locale": args.locale,
+            "keymap": args.keymap,
+            "repo_path": args.clone_relative,
+        },
+        interactive=interactive,
+        choice=args.select,
+        fallback_rel="modules/00-configuration.nix",
     )
-    configuration = replace_once(
-        configuration,
-        r'system\.stateVersion = "[^"]*";',
-        "system.stateVersion = {version};".format(
-            version=nix_string(args.state_version)
+    flake_structure.ensure_users(
+        root,
+        user_module(
+            args.username,
+            args.fullname,
+            args.hashed_password,
+            args.shell,
+            args.state_version,
         ),
-        "system.stateVersion",
-        required=True,
+        interactive=interactive,
+        choice=args.select,
+        fallback_rel="modules/00-user.nix",
     )
-
-    if args.timezone:
-        configuration = replace_once(
-            configuration,
-            r'time\.timeZone = "[^"]*";',
-            "time.timeZone = {zone};".format(zone=nix_string(args.timezone)),
-            "time.timeZone",
-        )
-    if args.locale:
-        configuration = replace_once(
-            configuration,
-            r'i18n\.defaultLocale = "[^"]*";',
-            "i18n.defaultLocale = {locale};".format(locale=nix_string(args.locale)),
-            "i18n.defaultLocale",
-        )
-    if args.keymap:
-        configuration = replace_once(
-            configuration,
-            r'console\.keyMap = "[^"]*";',
-            "console.keyMap = {keymap};".format(keymap=nix_string(args.keymap)),
-            "console.keyMap",
-        )
-
-    with open(configuration_path, "w") as handle:
-        handle.write(configuration)
-
     runtime_clone = os.path.join("/home", args.username, args.clone_relative)
-
-    with open(os.path.join(root, "modules/01-users/01-user.nix"), "w") as handle:
-        handle.write(
-            user_module(
-                args.username,
-                args.fullname,
-                args.hashed_password,
-                args.shell,
-                args.state_version,
-            )
-        )
-
-    with open(os.path.join(root, "modules/07-system/00-host.nix"), "w") as handle:
-        handle.write(host_module(args.hostname, runtime_clone))
+    flake_structure.ensure_host(
+        root,
+        args.hostname,
+        runtime_clone,
+        interactive=interactive,
+        choice=args.select,
+        fallback_rel="modules/00-host.nix",
+    )
+    flake_structure.ensure_imports(
+        root,
+        ["system-configuration", "users"],
+        interactive=interactive,
+        choice=args.select,
+        fallback_rel="modules/00-imports.nix",
+    )
 
 
 def main():
@@ -205,6 +157,8 @@ def main():
     parser.add_argument("--state-version", default="26.11")
     parser.add_argument("--clone-relative", default="repos/nix-flake")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--non-interactive", action="store_true")
+    parser.add_argument("--select", default=None, help="explicit module file choice")
     args = parser.parse_args()
 
     if not re.fullmatch(r"[a-z_][a-z0-9_-]*", args.username):

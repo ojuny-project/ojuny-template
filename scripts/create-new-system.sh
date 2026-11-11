@@ -2,8 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="${OJUNY_ROOT:-$PWD}"
-CONFIG="$REPO_ROOT/modules/07-system/01-configuration.nix"
-HOST_MODULE="$REPO_ROOT/modules/07-system/00-host.nix"
+HELPER="$REPO_ROOT/scripts/flake_structure.py"
 
 state_version="26.11"
 for arg in "$@"; do
@@ -20,34 +19,15 @@ done
 read -rp "Hostname [ojuny]: " hostname
 hostname="${hostname:-ojuny}"
 
-if [ -f "$CONFIG" ]; then
-  sed -i "s|^\( *\)networking\.hostName = .*;|\1networking.hostName = \"$hostname\";|" "$CONFIG"
-  sed -i "s|^\( *\)system\.stateVersion = .*;|\1system.stateVersion = \"$state_version\";|" "$CONFIG"
-  echo "create-new-system: set networking.hostName and system.stateVersion in $CONFIG"
-else
-  echo "create-new-system: $CONFIG not found, skipping hostname" >&2
-fi
-
-flake_uri="${OJUNY_FLAKE_URI:-git+https://github.com/OWNER/REPO?dir=HOST}"
 clone_path="${OJUNY_CLONE_PATH:-repos/nix-flake}"
 
-{
-  cat <<EOF
-{ self, inputs, ... }: {
+python3 "$HELPER" --root "$REPO_ROOT" --non-interactive ensure-configuration \
+  --hostname "$hostname" \
+  --state-version "$state_version" \
+  --repo-path "$clone_path" >/dev/null
 
-  flake.nixosConfigurations.$hostname = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
-    modules = [
-      self.modules.nixos.host-imports
-      ({ lib, ... }: {
-        services.simple-nix-update-gui.flakeUri = lib.mkDefault "$flake_uri";
-        services.simple-nix-update-gui.clonePath = lib.mkDefault "$clone_path";
-      })
-    ];
-  };
+python3 "$HELPER" --root "$REPO_ROOT" --non-interactive host \
+  --hostname "$hostname" \
+  --clone-path "$clone_path" >/dev/null
 
-}
-EOF
-} >"$HOST_MODULE"
-
-echo "create-new-system: wrote $HOST_MODULE (nixosConfigurations.$hostname)"
+echo "create-new-system: wired nixosConfigurations.$hostname"

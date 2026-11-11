@@ -211,13 +211,13 @@ echo
 echo "==> git add (so the flake sees the generated files)"
 git add -A
 
-host="$(sed -n 's/.*nixosConfigurations\.\([A-Za-z0-9._-]*\) =.*/\1/p' \
-  "$CLONE_DIR/modules/07-system/00-host.nix" | sed -n '1p')"
+helper="$CLONE_DIR/scripts/flake_structure.py"
+host="$(python3 "$helper" --root "$CLONE_DIR" current-host)"
 
 echo
 echo "Your Ojuny configuration is ready in $CLONE_DIR"
 if [ -z "$host" ]; then
-  echo "setup: could not read the hostname from 00-host.nix, skipping the rebuild prompt" >&2
+  echo "setup: could not find a nixosConfigurations host, skipping the rebuild prompt" >&2
   exit 0
 fi
 
@@ -226,8 +226,9 @@ echo
 
 nix_settings_gui_dir="$HOME/.config/nix-settings-gui"
 mkdir -p "$nix_settings_gui_dir"
+user_module="$(python3 "$helper" --root "$CLONE_DIR" --non-interactive path --module users --fallback modules/00-user.nix)"
 terminal_shell="$(sed -n 's/.*shell = pkgs\.\([A-Za-z0-9_-]*\);.*/\1/p' \
-  "$CLONE_DIR/modules/01-users/01-user.nix" | sed -n '1p')"
+  "$user_module" 2>/dev/null | sed -n '1p')"
 terminal_shell="${terminal_shell:-zsh}"
 cat >"$nix_settings_gui_dir/config.json" <<EOF
 {

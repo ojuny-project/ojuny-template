@@ -17,8 +17,9 @@ nix run .#handover
 
 The script:
 
-1. Reads the host from `modules/07-system/00-host.nix`.
-2. Backs up `modules/01-users/01-user.nix` under
+1. Finds the host module by `flake.nixosConfigurations.<host>`, or falls back
+   to `modules/00-host.nix`.
+2. Backs up the discovered `users` module, or `modules/00-user.nix`, under
    `/var/lib/ojuny/handover/<timestamp>/`.
 3. Runs `generate-user --force` for the new account.
 4. Runs `nixos-rebuild boot --flake <repo>#<host>`.
@@ -58,13 +59,14 @@ repository contents.
 nix run .#factory-reset -- --template https://github.com/you/ojuny-template
 ```
 
-The script keeps:
+The script keeps the files it discovers by module name, or their `modules/`
+fallbacks:
 
-- `modules/01-users/01-user.nix`
-- `modules/07-system/00-host.nix`
-- `modules/07-system/00-hardware.nix`
-- `modules/07-system/facter.json`, when present
-- `modules/07-system/00-hardware-quirks.nix`, when present
+- the `users` module
+- the host module
+- the `system-hardware` and `system-bootloader` modules
+- the discovered `facter.json`, when present
+- the `system-hardware-quirks` module, when present
 - the hostname and `system.stateVersion`
 - `/home` and all user files
 

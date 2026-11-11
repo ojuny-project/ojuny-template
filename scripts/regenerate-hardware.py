@@ -6,6 +6,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import flake_structure
+
 
 # The coverage table lives in modules/backend/01-system/10-hardware-profile.nix.
 # tests/check-hardware-profile.py asserts that this table still matches it.
@@ -392,9 +395,11 @@ def detect_boot_device(repo):
     except Exception:
         pass
 
-    hardware_path = os.path.join(repo, "modules/07-system/00-hardware.nix")
-    if os.path.exists(hardware_path):
-        with open(hardware_path) as handle:
+    candidates = flake_structure.find_modules(repo, "system-hardware") or flake_structure.find_modules(
+        repo, "system-bootloader"
+    )
+    if candidates:
+        with open(candidates[0]) as handle:
             match = re.search(
                 r'boot\.loader\.grub\.device\s*=\s*"([^"]+)"', handle.read()
             )
@@ -604,22 +609,21 @@ def selected_profile(report, explicit=None):
 
 
 def read_facter(root):
-    path = os.path.join(root, "modules/07-system/facter.json")
-    if not os.path.exists(path):
+    candidates = flake_structure.find_facter(root)
+    if not candidates:
         return {}
-    with open(path) as handle:
+    with open(candidates[0]) as handle:
         return json.load(handle)
 
 
 def explicit_profile_from_page(root):
-    path = os.path.join(root, "modules/07-system/09-facter.nix")
-    if not os.path.exists(path):
-        return None
-    with open(path) as handle:
-        source = handle.read()
-    match = re.search(r'ojuny\.hardware\.profile\s*=\s*"([^"]+)"', source)
-    if match and match.group(1) != "auto":
-        return match.group(1)
+    candidates = flake_structure.find_modules(root, "system-facter")
+    for path in candidates:
+        with open(path) as handle:
+            source = handle.read()
+        match = re.search(r'ojuny\.hardware\.profile\s*=\s*"([^"]+)"', source)
+        if match and match.group(1) != "auto":
+            return match.group(1)
     return None
 
 
@@ -635,10 +639,12 @@ def resolve_profile(root, explicit):
 
 
 def write_profile_module(root, profile):
-    path = os.path.join(root, "modules/07-system/00-hardware-quirks.nix")
-    with open(path, "w") as handle:
-        handle.write(profile_module(profile))
-    return path
+    return flake_structure.ensure_quirks(
+        root,
+        profile_module(profile),
+        interactive=False,
+        fallback_rel="modules/backend/00-hardware-quirks.nix",
+    )
 
 
 def main():
@@ -654,7 +660,7 @@ def main():
     parser.add_argument(
         "--profile-only",
         action="store_true",
-        help="Only rewrite modules/07-system/00-hardware-quirks.nix.",
+        help="Only rewrite the discovered hardware quirks module.",
     )
     args = parser.parse_args()
 
@@ -724,20 +730,42 @@ def main():
             extra_lines = [line.rstrip() for line in handle if line.strip()]
     extra_lines += luks_device_lines()
 
-    facter_path = os.path.join(root, "modules/07-system/facter.json")
     try:
         report = json.loads(run(["nixos-facter"]))
     except Exception as error:
         print("regenerate-hardware: {}".format(error), file=sys.stderr)
         return 1
 
-    with open(facter_path, "w") as handle:
-        json.dump(report, handle, indent=2)
-        handle.write("\n")
+    facter_path = flake_structure.ensure_facter(
+        root,
+        json.dumps(report, indent=2) + "\n",
+        interactive=False,
+        fallback_rel="modules/facter.json",
+    )
 
-    output_path = os.path.join(root, "modules/07-system/00-hardware.nix")
-    with open(output_path, "w") as handle:
-        handle.write(hardware_module(hardware, firmware, device, extra_lines))
+    output_path = flake_structure.ensure_hardware(
+        root,
+        hardware_module(hardware, firmware, device, extra_lines),
+        interactive=False,
+        fallback_rel="modules/00-hardware.nix",
+    )
+    imports = [
+        name
+        for name in (
+            "system-configuration",
+            "users",
+            "system-hardware",
+            "system-bootloader",
+            "system-hardware-quirks",
+        )
+        if flake_structure.find_modules(root, name)
+    ]
+    flake_structure.ensure_imports(
+        root,
+        imports,
+        interactive=False,
+        fallback_rel="modules/00-imports.nix",
+    )
 
     try:
         profile = resolve_profile(root, args.profile)
@@ -750,7 +778,7 @@ def main():
     print("regenerate-hardware: wrote {}".format(output_path))
     print(
         "regenerate-hardware: wrote {} (profile: {})".format(
-            quirks_path, profile or "unmatched"
+            quirks_path or "no quirks module", profile or "unmatched"
         )
     )
     return 0

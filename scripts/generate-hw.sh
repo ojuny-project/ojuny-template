@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="${OJUNY_ROOT:-$PWD}"
-OUT="$REPO_ROOT/modules/07-system/00-hardware.nix"
+HELPER="$REPO_ROOT/scripts/flake_structure.py"
+OUT="$(python3 "$HELPER" --root "$REPO_ROOT" --non-interactive path --module hardware --fallback modules/00-hardware.nix)"
 
 force=0
 for arg in "$@"; do
@@ -122,7 +123,7 @@ if [ -n "$boot_luks" ]; then
 $boot_luks"
 fi
 
-FACTER="$REPO_ROOT/modules/07-system/facter.json"
+FACTER="$(python3 "$HELPER" --root "$REPO_ROOT" --non-interactive facter)"
 facter_ok=0
 if command -v nixos-facter >/dev/null 2>&1; then
   echo "generate-hw: running nixos-facter"
@@ -157,5 +158,8 @@ fi
   printf '%s\n' "$boot_module"
   printf '\n  };\n\n}\n'
 } >"$OUT"
+
+python3 "$HELPER" --root "$REPO_ROOT" --non-interactive ensure-imports \
+  --name system-hardware --name system-bootloader >/dev/null
 
 echo "generate-hw: wrote $OUT (bootloader: $bootloader)"

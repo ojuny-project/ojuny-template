@@ -87,7 +87,7 @@
 
         ojuny.hardware.gpu.busIds = detection.gpu.busIds;
 
-        hardware.facter.reportPath = lib.mkIf (builtins.pathExists ../../07-system/facter.json) ../../07-system/facter.json;
+        hardware.facter.reportPath = lib.mkIf (builtins.pathExists ../../facter.json) ../../facter.json;
       };
     };
 }

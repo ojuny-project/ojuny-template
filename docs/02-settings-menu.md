@@ -34,7 +34,7 @@ each page contains and is the spec the repo is built from.
 - A file with no `@menu` header is ignored by the scanner. Use this for
   under-the-hood settings that should not be user-edited.
 - `03-desktop/00-mango.nix` is the under-the-hood mango file.
-- `07-system/00-hardware.nix` is generated and has no menu.
+- The generated `system-hardware` module has no menu.
 - Values that must never be changed (for example `system.stateVersion`) live
   in a menu file but carry no `@option` comment, so they are never shown.
 
@@ -243,8 +243,8 @@ current working set for review.
   widget, which reads `facter.json` and shows the detected model, profile,
   coverage state, effective GPU layout and its source. `auto` uses
   `regenerate-hardware`; a concrete profile is a manual override.
-  Applying a change rewrites `00-hardware-quirks.nix` with
-  `nix run .#regenerate-hardware -- --profile-only`.
+  Applying a change rewrites the discovered `system-hardware-quirks` module
+  with `nix run .#regenerate-hardware -- --profile-only`.
 - `07-plymouth.nix` `[menu]`. Stylix-coloured Plymouth boot splash with the Ojuny logo.
 
 ### backend

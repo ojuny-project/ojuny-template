@@ -74,7 +74,7 @@
       options.ojuny.repoPath = lib.mkOption {
         type = lib.types.str;
         default = "repos/nix-flake";
-        description = "Path to the system flake, relative to the primary user's home or absolute.";
+        description = "Path to the installed system flake, relative to the primary user's home or absolute. This is the single source of truth for the flake location; runtime tools read the generated /etc/ojuny/flake-path projection.";
       };
 
       options.ojuny.i18n.extraLocaleSettings = lib.mkOption {
@@ -339,6 +339,11 @@
         environment.variables = {
           OJUNY_REPO_PATH = repoPathAbsolute;
           OJUNY_FLAKE = repoPathAbsolute;
+        };
+
+        environment.etc."ojuny/flake-path" = {
+          text = repoPathAbsolute + "\n";
+          mode = "0644";
         };
 
         services.automatic-timezoned.enable = config.ojuny.time.auto;

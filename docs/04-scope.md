@@ -42,8 +42,8 @@ per `02-settings-menu.md`.
 | `desktops/mango/*` (core, binds, layouts, decoration) | `02-desktop/*` |
 | `desktops/mango/dankshell.nix` + Dux Modular Shell defaults | `02-desktop/*` (via `desktop.ojuny.dux.*`) |
 | `desktops/mango/dgreet.nix` | `02-desktop/login.nix` (proposed) |
-| `hosts/x1carbon/hardware.nix` (shape) | generated `07-system/00-hardware.nix` |
-| `users/*/{userdetails,homeconfig,termpackages}` (shape) | generated `01-users/01-user.nix` |
+| `hosts/x1carbon/hardware.nix` (shape) | generated `system-hardware` module |
+| `users/*/{userdetails,homeconfig,termpackages}` (shape) | generated `users` module |
 
 ## 2. Out of scope (dropped)
 
@@ -71,8 +71,8 @@ per `02-settings-menu.md`.
 
 - dendrite's per-user module split (`base`, `desktop`, `guipackages`,
   `homeconfig`, `termpackages`, `userdetails`) collapses into the single
-  `01-users/01-user.nix` page plus `01-users/02-commonsettings.nix`. The Users
-  widget supports multiple accounts and their home-manager entries.
+  generated `users` module plus the shared user settings page. The Users widget
+  supports multiple accounts and their home-manager entries.
 - dendrite's concern grouping (`features/`, `styles/`, `terminal/`, `utils/`)
   dissolves and is regrouped by settings page.
 - The mango + Dux Modular Shell config is not ported directly; it comes from

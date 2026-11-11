@@ -87,11 +87,11 @@ dendrite, so the template reuses them. Raven is separate: it is installed only
 when the App format compatibility page enables it, and its input moves upstream
 after testing.
 
-Hardware profiles are split two ways. Automatic selection reads
-`modules/07-system/facter.json`, matches the SMBIOS vendor and product against
-the table in `modules/backend/01-system/10-hardware-profile.nix`, and writes
-`modules/07-system/00-hardware-quirks.nix`. Manual selection is the profile
-dropdown on the Hardware report page (`modules/07-system/09-facter.nix`); it
+Hardware profiles are split two ways. Automatic selection reads the discovered
+`facter.json`, matches the SMBIOS vendor and product against the table in
+`modules/backend/01-system/10-hardware-profile.nix`, and writes the discovered
+`system-hardware-quirks` module. Manual selection is the profile
+dropdown on the Hardware report page (`system-facter` module); it
 wins over automatic selection. The covered models and their states are listed
 in `docs/hardware-coverage.md`.
 

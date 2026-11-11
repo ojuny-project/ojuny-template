@@ -39,12 +39,14 @@ while [ "$#" -gt 0 ]; do
 done
 
 repo_root="${OJUNY_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-host_file="$repo_root/modules/07-system/00-host.nix"
-user_file="$repo_root/modules/01-users/01-user.nix"
-config_file="$repo_root/modules/07-system/01-configuration.nix"
-hardware_file="$repo_root/modules/07-system/00-hardware.nix"
-facter_file="$repo_root/modules/07-system/facter.json"
-quirks_file="$repo_root/modules/07-system/00-hardware-quirks.nix"
+helper="$repo_root/scripts/flake_structure.py"
+host="$(python3 "$helper" --root "$repo_root" current-host)"
+host_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module host --host "$host" --fallback modules/00-host.nix)"
+user_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module users --fallback modules/00-user.nix)"
+config_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module configuration --fallback modules/00-configuration.nix)"
+hardware_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module hardware --fallback modules/00-hardware.nix)"
+facter_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module facter --fallback modules/facter.json)"
+quirks_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module quirks --fallback modules/backend/00-hardware-quirks.nix)"
 
 [ -f "$repo_root/flake.nix" ] || {
   echo "factory-reset: $repo_root is not the Ojuny repository" >&2
@@ -57,9 +59,8 @@ for required in "$host_file" "$user_file" "$config_file" "$hardware_file"; do
   }
 done
 
-host="$(sed -n 's/.*nixosConfigurations\.\([A-Za-z0-9._-]*\) =.*/\1/p' "$host_file" | sed -n '1p')"
 [ -n "$host" ] || {
-  echo "factory-reset: could not read the host from $host_file" >&2
+  echo "factory-reset: could not read a nixosConfigurations host" >&2
   exit 1
 }
 
@@ -130,12 +131,19 @@ git clone --depth 1 "$template" "$tmp/template"
   exit 1
 }
 
-mkdir -p "$tmp/preserve/modules/01-users" "$tmp/preserve/modules/07-system"
-cp -a "$user_file" "$tmp/preserve/modules/01-users/01-user.nix"
-cp -a "$host_file" "$tmp/preserve/modules/07-system/00-host.nix"
-cp -a "$hardware_file" "$tmp/preserve/modules/07-system/00-hardware.nix"
-[ -f "$facter_file" ] && cp -a "$facter_file" "$tmp/preserve/modules/07-system/facter.json"
-[ -f "$quirks_file" ] && cp -a "$quirks_file" "$tmp/preserve/modules/07-system/00-hardware-quirks.nix"
+preserve() {
+  local file="$1" relative
+  [ -f "$file" ] || return 0
+  relative="${file#"$repo_root"/}"
+  mkdir -p "$tmp/preserve/$(dirname "$relative")"
+  cp -a "$file" "$tmp/preserve/$relative"
+}
+preserve "$user_file"
+preserve "$host_file"
+preserve "$config_file"
+preserve "$hardware_file"
+preserve "$facter_file"
+preserve "$quirks_file"
 
 echo "==> replacing repository contents"
 rsync -a --delete --exclude='.git' "$tmp/template/" "$repo_root/"

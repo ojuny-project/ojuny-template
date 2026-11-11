@@ -144,6 +144,7 @@
             name = "prepare-repo";
             runtimeInputs = [ pkgs.python3 ];
             text = ''
+              export PYTHONPATH=${./scripts}:$PYTHONPATH
               exec python3 ${./scripts/prepare-repo.py} "$@"
             '';
           };
@@ -160,6 +161,7 @@
               pkgs.gnugrep
             ];
             text = ''
+              export PYTHONPATH=${./scripts}:$PYTHONPATH
               exec python3 ${./scripts/regenerate-hardware.py} "$@"
             '';
           };
@@ -190,7 +192,10 @@
           ojuny-ukify = pkgs.writeShellApplication {
             name = "ukify";
             runtimeInputs = [
-              (pkgs.python3.withPackages (ps: [ ps.cryptography ps.pefile ]))
+              (pkgs.python3.withPackages (ps: [
+                ps.cryptography
+                ps.pefile
+              ]))
               pkgs.binutils
             ];
             text = ''
@@ -201,7 +206,12 @@
         in
         {
           packages = {
-            inherit prepare-repo regenerate-hardware ojuny-bootorder ojuny-ukify;
+            inherit
+              prepare-repo
+              regenerate-hardware
+              ojuny-bootorder
+              ojuny-ukify
+              ;
 
             nix-settings-gui = inputs.nix-settings-gui.packages.${system}.default;
             ojuny-welcome = inputs.ojuny-welcome.packages.${system}.default;
@@ -454,20 +464,47 @@
                 touch $out
               '';
 
+          checks.flake-structure =
+            let
+              source = pkgs.lib.cleanSource ./.;
+            in
+            pkgs.runCommand "check-flake-structure"
+              {
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                python3 ${source}/tests/check-flake-structure.py
+                touch $out
+              '';
+          checks.fixed-paths =
+            let
+              source = pkgs.lib.cleanSource ./.;
+            in
+            pkgs.runCommand "check-fixed-paths"
+              {
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                python3 ${source}/tests/check-fixed-paths.py
+                touch $out
+              '';
+
           checks.module-tree-current =
             let
               source = pkgs.lib.cleanSource ./.;
             in
-            pkgs.runCommand "check-module-tree" {
-              nativeBuildInputs = [ pkgs.diffutils ];
-            } ''
-              cp -r ${source} work
-              chmod -R u+w work
-              cd work
-              sh scripts/gen-module-tree.sh
-              diff -u ${source}/docs/module-tree.md docs/module-tree.md
-              touch $out
-            '';
+            pkgs.runCommand "check-module-tree"
+              {
+                nativeBuildInputs = [ pkgs.diffutils ];
+              }
+              ''
+                cp -r ${source} work
+                chmod -R u+w work
+                cd work
+                sh scripts/gen-module-tree.sh
+                diff -u ${source}/docs/module-tree.md docs/module-tree.md
+                touch $out
+              '';
 
           checks.default = pkgs.runCommand "check-default" { } ''
             echo ${self.checks.${system}.hardware-profile} >/dev/null
@@ -475,6 +512,8 @@
             echo ${self.checks.${system}.settings-options} >/dev/null
             echo ${self.checks.${system}.overflow-layout} >/dev/null
             echo ${self.checks.${system}.bootorder} >/dev/null
+            echo ${self.checks.${system}.flake-structure} >/dev/null
+            echo ${self.checks.${system}.fixed-paths} >/dev/null
             echo ${self.checks.${system}.module-tree-current} >/dev/null
             touch $out
           '';

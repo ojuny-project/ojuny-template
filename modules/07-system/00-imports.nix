@@ -75,13 +75,8 @@
       self.modules.nixos.applications-steam
       self.modules.nixos.applications-terminal
       self.modules.nixos.applications-vesktop
-    ]
-    ++ (
-      if builtins.pathExists ./00-hardware-quirks.nix then
-        [ self.modules.nixos.system-hardware-quirks ]
-      else
-        [ ]
-    );
+      self.modules.nixos.system-hardware-quirks
+    ];
 
     services.ojuny-welcome.enable = true;
 

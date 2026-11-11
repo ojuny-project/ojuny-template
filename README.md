@@ -32,8 +32,9 @@ $ nix run github:ojuny-project/ojuny-template#setup
 
 The script asks for the git URL of your fork and a clone location, defaulting
 to `~/repos/nix-flake`. It then runs `generate-hw`, `generate-user` and
-`create-new-system`, which write `modules/07-system/00-hardware.nix`,
-`modules/01-users/01-user.nix` and `modules/07-system/00-host.nix`. It adds the
+`create-new-system`, which find the `system-hardware`, `users` and host modules
+by name and fall back to `modules/00-hardware.nix`, `modules/00-user.nix` and
+`modules/00-host.nix`. It adds the
 files to git, writes `~/.config/nix-settings-gui/config.json`, and asks whether
 to rebuild and reboot, rebuild only, or do neither. A rebuild pre-builds the
 compiled targets with `nix build`, then runs `nixos-rebuild boot`.
@@ -114,6 +115,8 @@ rolling repository.
 - `docs/10-recovery.md`: the optional recovery UKI and firmware boot order.
 - `docs/11-agent.md`: the optional maintenance agent, read-only assistant and
   flake-safe agent CLI.
+- `docs/12-flake-module-contract.md`: how install and generation tools find
+  modules, the `modules/` fallback, the facter location and the flake location.
 
 ## Contributing
 

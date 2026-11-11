@@ -29,8 +29,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 repo_root="${OJUNY_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-host_file="$repo_root/modules/07-system/00-host.nix"
-user_file="$repo_root/modules/01-users/01-user.nix"
+helper="$repo_root/scripts/flake_structure.py"
+host="$(python3 "$helper" --root "$repo_root" current-host)"
+host_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module host --host "$host" --fallback modules/00-host.nix)"
+user_file="$(python3 "$helper" --root "$repo_root" --non-interactive path --module users --fallback modules/00-user.nix)"
 
 [ -f "$repo_root/flake.nix" ] || {
   echo "handover: $repo_root is not the Ojuny repository" >&2
@@ -45,9 +47,8 @@ user_file="$repo_root/modules/01-users/01-user.nix"
   exit 1
 }
 
-host="$(sed -n 's/.*nixosConfigurations\.\([A-Za-z0-9._-]*\) =.*/\1/p' "$host_file" | sed -n '1p')"
 [ -n "$host" ] || {
-  echo "handover: could not read the host from $host_file" >&2
+  echo "handover: could not read a nixosConfigurations host" >&2
   exit 1
 }
 

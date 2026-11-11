@@ -15,16 +15,20 @@ the flake.
 
 ## 2. What the script generates
 
-1. `hardware.nix` - filesystems, swap, kernel modules, CPU microcode, host
-   platform. Generated from `nixos-generate-config --show-hardware-config`, or
-   copied from `/etc/nixos/hardware-configuration.nix` when already on NixOS.
-   The install path also writes `facter.json` from `nixos-facter`; the
-   `regenerate-hardware` script writes `00-hardware-quirks.nix` with the
-   selected `nixos-hardware` profile. These generated files are not templated
-   (D13a).
-2. `user.nix` - the primary account and home-manager home, templated then
-   filled by the script. The generated Users page can add more accounts and
-   their home-manager entries. Prompts for:
+1. The `system-hardware` and `system-bootloader` modules - filesystems, swap,
+   kernel modules, CPU microcode, host platform. Generated from
+   `nixos-generate-config --show-hardware-config`, or copied from
+   `/etc/nixos/hardware-configuration.nix` when already on NixOS. The install
+   path also writes the discovered `facter.json` from `nixos-facter`; the
+   `regenerate-hardware` script writes the discovered
+   `system-hardware-quirks` module with the selected `nixos-hardware` profile.
+   When no module exists, the fallback is `modules/00-hardware.nix`,
+   `modules/facter.json` and `modules/backend/00-hardware-quirks.nix`. These
+   generated files are not templated (D13a).
+2. The `users` module - the primary account and home-manager home, templated
+   then filled by the script. The generated Users page can add more accounts
+   and their home-manager entries. The fallback is `modules/00-user.nix`.
+   Prompts for:
    - username (default `user`, D17)
    - description / full name
    - groups (default `networkmanager`, `wheel`, D15a)
@@ -47,7 +51,8 @@ the flake.
 3. Ask where to clone it, defaulting to `~/repos/nix-flake`.
 4. Clone the fork, then run `generate-hw`, `generate-user` and
    `create-new-system` with `--force` against the clone. `generate-hw` writes
-   `modules/07-system/facter.json` when `nixos-facter` is available.
+   the discovered `facter.json` when `nixos-facter` is available, or
+   `modules/facter.json` when no report exists.
 5. Ask whether to rebuild and reboot, rebuild only, or do neither. On rebuild,
    run `nixos-rebuild boot --flake <clone>#<host> --sudo` (D16).
 
@@ -92,24 +97,26 @@ the flake.
 
 ## 7. Interaction with the GUI
 
-- The generated `01-users/01-user.nix` carries `@menu` / `@option` comments so
-  the user can manage accounts and per-user home-manager settings in the GUI.
-  The generated `07-system/00-hardware.nix` has no `@menu` header and never
-  appears (D5, D6a).
-- `07-system/09-facter.nix` is the Hardware profile page. It has the profile
+- The generated `users` module carries `@menu` / `@option` comments so the user
+  can manage accounts and per-user home-manager settings in the GUI. The
+  generated `system-hardware` module has no `@menu` header and never appears
+  (D5, D6a).
+- The `system-facter` page is the Hardware profile page. It has the profile
   dropdown, read-only detected model, profile and state controls, and the
-  effective GPU layout and source. The generated
-  `07-system/00-hardware-quirks.nix` has no `@menu` header and never appears.
+  effective GPU layout and source. The generated `system-hardware-quirks`
+  module has no `@menu` header and never appears.
 - The script never edits files that the GUI owns (the hand-written page files);
   it only creates the generated file and fills the templates.
 
 ## 8. Hardware profiles
 
-`generate-hw` writes `modules/07-system/facter.json` with `nixos-facter`.
-`regenerate-hardware` maps `smbios.system.manufacturer` and
-`smbios.system.product` or `smbios.system.version` to one profile from
-`modules/backend/01-system/10-hardware-profile.nix` and writes
-`modules/07-system/00-hardware-quirks.nix` with:
+`generate-hw` writes the discovered `facter.json` with `nixos-facter`, or
+`modules/facter.json` when no report exists. `regenerate-hardware` maps
+`smbios.system.manufacturer` and `smbios.system.product` or
+`smbios.system.version` to one profile from
+`modules/backend/01-system/10-hardware-profile.nix` and writes the discovered
+`system-hardware-quirks` module, or
+`modules/backend/00-hardware-quirks.nix`, with:
 
 ```nix
 imports = [ inputs.nixos-hardware.nixosModules.<slug> ];
@@ -144,8 +151,8 @@ fails. Apply a dropdown change without a root
 nix run .#regenerate-hardware -- --profile-only
 ```
 
-The first run creates the file; stage it with
-`git add modules/07-system/00-hardware-quirks.nix` before rebuilding.
+The first run creates the file; stage the discovered path, or
+`modules/backend/00-hardware-quirks.nix`, before rebuilding.
 
 `--profile <slug>` forces a profile for one run. An unmatched machine writes no
 import and shows `unmatched`; an unsupported machine writes no import and shows

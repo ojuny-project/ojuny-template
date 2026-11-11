@@ -98,6 +98,7 @@ differs from the generator output.
 
 ## `backend`
 
+- `modules/backend/00-hardware-quirks.nix`
 - `modules/backend/01-system/01-configuration-backend.nix`
 - `modules/backend/01-system/02-networking-backend.nix`
 - `modules/backend/01-system/04-graphics-backend.nix`

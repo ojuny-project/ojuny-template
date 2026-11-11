@@ -409,7 +409,7 @@ let
       (lib.attrNames gpuProfiles)
   );
 
-  facterPath = ../../07-system/facter.json;
+  facterPath = ../../facter.json;
   detection =
     if builtins.pathExists facterPath then
       detect (builtins.fromJSON (builtins.readFile facterPath))

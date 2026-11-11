@@ -2,7 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="${OJUNY_ROOT:-$PWD}"
-OUT="$REPO_ROOT/modules/01-users/01-user.nix"
+HELPER="$REPO_ROOT/scripts/flake_structure.py"
+OUT="$(python3 "$HELPER" --root "$REPO_ROOT" --non-interactive path --module users --fallback modules/00-user.nix)"
 STATE_VERSION="26.11"
 
 force=0
@@ -117,5 +118,8 @@ fi
 }
 EOF
 } >"$OUT"
+
+python3 "$HELPER" --root "$REPO_ROOT" --non-interactive ensure-imports \
+  --name users >/dev/null
 
 echo "generate-user: wrote $OUT"
