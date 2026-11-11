@@ -15,7 +15,7 @@
       };
     in
     {
-      config = lib.mkIf (cfg.windowCount > 0) {
+      config = lib.mkIf (cfg.enable && cfg.windowCount > 0) {
         desktop.ojuny.mango.execOnce = [
           "${overflowLayout}/bin/ojuny-overflow-layout ${toString cfg.windowCount} ${cfg.layout}"
         ];

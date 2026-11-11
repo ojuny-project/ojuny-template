@@ -28,7 +28,7 @@
   flake.modules.nixos.desktop-launcher = { config, pkgs, ... }: {
 
     # @option widget = "dropdown"; label = "Launcher style"; group = "Launcher"; order = 10; choices = [ "full" "spotlight" "island" ]; description = "DMS launcher style. Full is the large app drawer, Spotlight is the small centered search bar, Island opens from the island bar."; applyCommand = "dms ipc call settings set launcherStyle %%val%%";
-    desktop.ojuny.dux.settings.launcherStyle = "full";
+    desktop.ojuny.dux.settings.launcherStyle = "island";
 
     # @option widget = "dropdown"; label = "Launcher size"; group = "Launcher"; order = 20; choices = [ "micro" "compact" "medium" "large" ]; visibleWhen.path = "desktop.ojuny.dux.settings.launcherStyle"; visibleWhen.equals = [ "full" "island" ]; description = "Size of the full and island launchers. Spotlight uses its own fixed size."; applyCommand = "dms ipc call settings set dankLauncherV2Size %%val%%";
     desktop.ojuny.dux.settings.dankLauncherV2Size = "compact";

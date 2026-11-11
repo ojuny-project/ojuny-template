@@ -224,10 +224,15 @@
       };
 
       options.ojuny.workspaces.overflow = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Switch the active workspace to the overflow layout when it holds the configured number of tiled windows.";
+        };
         windowCount = lib.mkOption {
           type = lib.types.ints.between 0 99;
-          default = 0;
-          description = "Switch the active workspace to the overflow layout when it holds at least this many tiled windows. Floating windows are not counted. 0 disables the feature.";
+          default = 4;
+          description = "Number of tiled windows that triggers the overflow layout. Floating windows are not counted.";
         };
         layout = lib.mkOption {
           type = lib.types.enum layoutChoices;
@@ -279,14 +284,17 @@
         # @option widget = "dropdown"; label = "Default Layout"; group = "Workspaces"; groupOrder = 5; order = 20; choices = [ "tile" "dwindle" "scroller" "monocle" "deck" "grid" "fair" "vertical_scroller" "vertical_tile" "vertical_fair" "vertical_grid" "vertical_deck" "right_tile" "center_tile" ]; description = "Layout used by tags without an explicit per-workspace row.";
         ojuny.workspaces.defaultLayout = "tile";
 
-        # @option widget = "spin"; label = "Overflow after this many windows"; group = "Overflow layout"; groupOrder = 15; order = 10; min = 0; max = 99; unit = "windows"; description = "Switch the active workspace to the overflow layout when it holds at least this many tiled windows. Floating windows are not counted. 0 disables overflow switching.";
-        ojuny.workspaces.overflow.windowCount = 0;
+        # @option widget = "switch"; label = "Overflow layout"; group = "Overflow layout"; groupOrder = 15; order = 5; description = "Switch the active workspace to the overflow layout when it holds the configured number of tiled windows. The previous layout is restored when the count drops below it.";
+        ojuny.workspaces.overflow.enable = false;
 
-        # @option widget = "dropdown"; label = "Overflow layout"; group = "Overflow layout"; groupOrder = 15; order = 20; choices = [ "tile" "dwindle" "scroller" "monocle" "deck" "grid" "fair" "vertical_scroller" "vertical_tile" "vertical_fair" "vertical_grid" "vertical_deck" "right_tile" "center_tile" ]; visibleWhen.path = "ojuny.workspaces.overflow.windowCount"; visibleWhen.notEquals = 0; description = "Layout used when a workspace reaches the overflow window count. The previous layout is restored when the count drops below it.";
+        # @option widget = "spin"; label = "Overflow after this many windows"; group = "Overflow layout"; groupOrder = 15; order = 10; min = 1; max = 99; unit = "windows"; visibleWhen.path = "ojuny.workspaces.overflow.enable"; visibleWhen.equals = true; description = "Switch the active workspace to the overflow layout when it holds at least this many tiled windows. Floating windows are not counted.";
+        ojuny.workspaces.overflow.windowCount = 4;
+
+        # @option widget = "dropdown"; label = "Overflow layout"; group = "Overflow layout"; groupOrder = 15; order = 20; choices = [ "tile" "dwindle" "scroller" "monocle" "deck" "grid" "fair" "vertical_scroller" "vertical_tile" "vertical_fair" "vertical_grid" "vertical_deck" "right_tile" "center_tile" ]; visibleWhen.path = "ojuny.workspaces.overflow.enable"; visibleWhen.equals = true; description = "Layout used when a workspace reaches the overflow window count. The previous layout is restored when the count drops below it.";
         ojuny.workspaces.overflow.layout = "monocle";
 
         # Per-workspace layout
-        # @option widget = "table-list"; label = "Per-workspace layout"; group = "Per-Workspace Layout"; groupOrder = 20; columns = [ "tag" "note" "monitor_name" "layout" ]; columnTypes = [ "int" "str" "str" "str" ]; firstValueEditable = true; description = "One row per workspace. tag is 0 for the special workspace or a number up to the tag count. note is a display label only. monitor_name pins the layout to one output; empty applies to all monitors. layout is the Mango layout. Rows apply in table order after the default wildcard rule, so a specific tag overrides the wildcard.";
+        # @option widget = "table-list"; label = "Per-workspace layout"; group = "Per-Workspace Layout"; groupOrder = 20; columns = [ "tag" "note" "monitor_name" "layout" ]; columnTypes = [ "int" "str" "str" "dropdown" ]; choices = [ "tile" "dwindle" "scroller" "monocle" "deck" "grid" "fair" "vertical_scroller" "vertical_tile" "vertical_fair" "vertical_grid" "vertical_deck" "right_tile" "center_tile" ]; firstValueEditable = true; description = "One row per workspace. tag is 0 for the special workspace or a number up to the tag count. note is a display label only. monitor_name pins the layout to one output; empty applies to all monitors. layout is the Mango layout. Rows apply in table order after the default wildcard rule, so a specific tag overrides the wildcard.";
         ojuny.workspaces.tags = [
           {
             tag = 0;

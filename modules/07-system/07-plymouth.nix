@@ -78,6 +78,28 @@
           theme = lib.mkForce "ojuny";
           themePackages = [ theme ];
         };
+
+        services.greetd.greeterManagesPlymouth = lib.mkIf config.ojuny.plymouth.enable true;
+
+        systemd.services.plymouth-quit.enable = lib.mkIf config.ojuny.plymouth.enable false;
+        systemd.services.plymouth-quit-wait.enable = lib.mkIf config.ojuny.plymouth.enable false;
+
+        systemd.services.ojuny-plymouth-quit = lib.mkIf config.ojuny.plymouth.enable {
+          description = "Quit Plymouth if the greeter did not";
+          unitConfig.ConditionPathExists = "/run/plymouth/pid";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "-${lib.getExe' config.boot.plymouth.package "plymouth"} quit --retain-splash";
+          };
+        };
+
+        systemd.timers.ojuny-plymouth-quit = lib.mkIf config.ojuny.plymouth.enable {
+          wantedBy = [ "multi-user.target" ];
+          timerConfig = {
+            OnActiveSec = "30s";
+            Unit = "ojuny-plymouth-quit.service";
+          };
+        };
       };
     };
 }

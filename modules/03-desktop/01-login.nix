@@ -131,6 +131,8 @@
         compositor = {
           name = "sway";
           package = pkgs.sway;
+          customConfig = lib.mkIf config.ojuny.plymouth.enable
+            "exec ${lib.getExe' config.boot.plymouth.package "plymouth"} quit --retain-splash";
         };
         configFiles = [
           "${greeterConfig}/settings.json"
