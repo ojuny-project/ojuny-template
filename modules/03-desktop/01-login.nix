@@ -121,7 +121,7 @@
         compositor = {
           name = "sway";
           package = pkgs.sway;
-          customConfig = lib.mkIf config.ojuny.plymouth.enable
+          customConfig = lib.mkIf (config.ojuny.plymouth.enable or false)
             "exec ${lib.getExe' config.boot.plymouth.package "plymouth"} quit --retain-splash";
         };
       };
