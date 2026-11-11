@@ -12,45 +12,33 @@
   flake.modules.nixos.desktop-display =
     { config, lib, ... }:
 
-    let
-      iccProfile = config.ojuny.accessibility.iccProfile;
-
-      withIcc =
-        rule:
-        rule
-        // lib.optionalAttrs (iccProfile != null) {
-          icc = toString iccProfile;
-        };
-    in
     {
       imports = [ self.modules.nixos.desktop-display-backend ];
 
       config = {
 
         # Monitors
-        # @option widget = "monitors"; label = "Monitors"; group = "Monitors"; groupOrder = 10; description = "Drag monitors to set their position; sizes and names stay editable in the rule.";
-        desktop.ojuny.mango.rules.monitor_rule = map withIcc [
-          {
-            name = "eDP-1";
+        # @option widget = "monitors"; label = "Monitors"; group = "Monitors"; groupOrder = 10; disabledFeatures = [ "match" "mirror" "priority" "modeline" "power" "reflection" "focusAtStartup" "brightness" "autoRotation" "autoHdr" "color.profile" "color.wideGamut" "color.bitDepth" "hdr.sdrBrightness" "hdr.sdrSaturation" "hdr.sdrMinLuminance" "hdr.sdrMaxLuminance" "hdr.sdrEotf" "sync.allowTearing" "sync.maxRenderTime" "render" "signal" "reserved" "hotCorners" "background" ]; description = "Drag monitors to set their position. The output name is the identity; replace a monitor by removing the old row and adding the new one.";
+        services.nix-settings-gui.monitors = {
+          "eDP-1" = {
             width = 1920;
             height = 1080;
             refresh = 60;
-            x = 0;
-            y = 0;
-            scale = 1.00;
-            rr = 0;
-          }
-          {
-            name = "HDMI-A-1";
+            xPos = 0;
+            yPos = 0;
+            scale = 1.0;
+            transform = "normal";
+          };
+          "HDMI-A-1" = {
             width = 1920;
             height = 1080;
             refresh = 60;
-            x = 1920;
-            y = 0;
-            scale = 1.00;
-            rr = 1;
-          }
-        ];
+            xPos = 1920;
+            yPos = 0;
+            scale = 1.0;
+            transform = "90";
+          };
+        };
 
         # Tearing and HDR
         # @option widget = "dropdown"; label = "Allow tearing"; group = "Tearing and HDR"; groupOrder = 20; choices = [ "disable" "enable" "fullscreen-only" ]; applyCommand = "case %%val%% in disable) v=0;; enable) v=1;; fullscreen-only) v=2;; esac; mmsg dispatch setoption,allow_tearing,$v";
