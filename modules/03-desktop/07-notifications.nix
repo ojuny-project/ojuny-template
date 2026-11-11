@@ -9,16 +9,6 @@
 
 { self, inputs, ... }:
 
-let
-  popupPositions = {
-    "top-right" = 0;
-    "top-left" = 2;
-    "top-center" = -1;
-    "bottom-center" = 5;
-    "bottom-right" = 3;
-    "bottom-left" = 1;
-  };
-in
 {
 
   flake.modules.nixos.desktop-notifications =
@@ -29,29 +19,14 @@ in
       ...
     }:
     {
-
-      options.ojuny.dux.notificationPopupPosition = lib.mkOption {
-        type = lib.types.enum (lib.attrNames popupPositions);
-        default = "top-right";
-      };
-
-      options.ojuny.apps.kalarm.enable = lib.mkEnableOption "KAlarm scheduled notices";
+      imports = [ self.modules.nixos.desktop-notifications-backend ];
 
       config = {
-
         # @option widget = "switch"; label = "KAlarm reminder app"; group = "Notices"; groupOrder = 70; order = 10; description = "Install KAlarm and start it in the tray. Create and edit the date, time and recurring reminders inside KAlarm; this switch does not define alarms. Battery alerts remain on the Power page.";
         ojuny.apps.kalarm.enable = false;
 
-        environment.systemPackages = lib.optional config.ojuny.apps.kalarm.enable pkgs.kdePackages.kalarm;
-
-        desktop.ojuny.mango.execOnce =
-          lib.optional config.ojuny.apps.kalarm.enable "${pkgs.kdePackages.kalarm}/bin/kalarm --tray";
-
         # @option widget = "dropdown"; label = "Notification popup position"; group = "Popups"; groupOrder = 10; order = 5; choices = [ "top-right" "top-left" "top-center" "bottom-center" "bottom-right" "bottom-left" ];
         ojuny.dux.notificationPopupPosition = "top-right";
-
-        desktop.ojuny.dux.settings.notificationPopupPosition =
-          popupPositions.${config.ojuny.dux.notificationPopupPosition};
 
         # @option widget = "spin"; label = "Popup duration"; group = "Popups"; groupOrder = 10; order = 10; min = 0; step = 50; unit = "ms";
         desktop.ojuny.dux.settings.notificationAnimationDuration = 400;

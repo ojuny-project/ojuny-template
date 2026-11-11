@@ -17,18 +17,8 @@
       pkgs,
       ...
     }:
-    let
-      rendered = (import "${inputs.ojuny-desktop}/lib/mk-config.nix" { inherit lib; })
-        .mkConfig { dux = config.desktop.ojuny.dux; };
-
-      greeterConfig = pkgs.runCommand "ojuny-dux-greeter-config" { } ''
-        mkdir -p "$out"
-        cp ${pkgs.writeText "settings.json" rendered.duxJson} "$out/settings.json"
-        cp ${pkgs.writeText "session.json" rendered.duxSessionJson} "$out/session.json"
-      '';
-    in
     {
-      imports = [ inputs.dux-greeter.nixosModules.default ];
+      imports = [ self.modules.nixos.desktop-login-backend ];
 
       # @option widget = "switch"; label = "Auto login"; group = "Greeter"; groupOrder = 20; order = 10; hidden = true; advanced = true; description = "Log in to the last session without a password. This bypasses the greeter."; applyCommand = "dms ipc call settings set greeterAutoLogin %%val%%";
       desktop.ojuny.dux.settings.greeterAutoLogin = false;
@@ -134,13 +124,6 @@
           customConfig = lib.mkIf config.ojuny.plymouth.enable
             "exec ${lib.getExe' config.boot.plymouth.package "plymouth"} quit --retain-splash";
         };
-        configFiles = [
-          "${greeterConfig}/settings.json"
-          "${greeterConfig}/session.json"
-        ];
       };
-
-      services.displayManager.defaultSession = "ojuny";
     };
-
 }

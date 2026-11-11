@@ -184,7 +184,7 @@
               gnused
               util-linux
             ];
-            text = builtins.readFile ./modules/backend/bootorder.sh;
+            text = builtins.readFile ./modules/backend/01-system/bootorder.sh;
           };
 
           ojuny-ukify = pkgs.writeShellApplication {
@@ -435,7 +435,7 @@
                 ];
               }
               ''
-                bash ${source}/tests/check-overflow-layout.sh ${source}/modules/backend/overflow-layout.sh
+                bash ${source}/tests/check-overflow-layout.sh ${source}/modules/backend/03-desktop/overflow-layout.sh
                 touch $out
               '';
           checks.bootorder =
@@ -450,7 +450,7 @@
                 ];
               }
               ''
-                SCRIPT=${source}/modules/backend/bootorder.sh bash ${source}/tests/check-bootorder.sh
+                SCRIPT=${source}/modules/backend/01-system/bootorder.sh bash ${source}/tests/check-bootorder.sh
                 touch $out
               '';
 

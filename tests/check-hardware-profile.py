@@ -176,7 +176,7 @@ def main():
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    module_path = root / "modules/backend/10-hardware-profile.nix"
+    module_path = root / "modules/backend/01-system/10-hardware-profile.nix"
     page_path = root / "modules/07-system/09-facter.nix"
     script_path = root / "scripts/regenerate-hardware.py"
     fixture_path = root / "tests/fixtures/facter-surface-go.json"
@@ -220,7 +220,7 @@ def main():
     missing = sorted(set(nix_gpu) - table_profiles)
     check(not missing, "gpuProfiles key is not in the profile table: %s" % missing)
 
-    quirk_path = root / "modules/backend/device-quirks.nix"
+    quirk_path = root / "modules/backend/01-system/device-quirks.nix"
     check(quirk_path.exists(), "missing Ojuny quirk module file: %s" % quirk_path)
     quirk_text = quirk_path.read_text() if quirk_path.exists() else ""
     for profile in sorted(p for p in table_profiles if p.startswith("ojuny-")):

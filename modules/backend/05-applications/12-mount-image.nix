@@ -23,7 +23,7 @@
           util-linux
           xdg-utils
         ];
-        text = builtins.readFile ../../scripts/ojuny-mount-image.sh;
+        text = builtins.readFile ../../../scripts/ojuny-mount-image.sh;
       };
 
       mountImageDesktop = pkgs.makeDesktopItem {

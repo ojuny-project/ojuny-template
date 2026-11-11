@@ -21,6 +21,7 @@
         inputs.craftapps.nixosModules.default
         self.modules.nixos.applications-office-apps
         self.modules.nixos.applications-office-mime
+        self.modules.nixos.applications-office-backend
       ];
 
       options.ojuny.apps.office.enable = lib.mkEnableOption "the LibreOffice office suite";
@@ -102,75 +103,22 @@
         xdg.mime.defaultApplications."application/vnd.oasis.opendocument.text" =
           "libreoffice-writer.desktop";
 
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.text-template" =
-          "libreoffice-writer.desktop";
-
         # @option widget = "dropdown"; label = "Word documents"; group = "Default applications"; groupOrder = 15; choices = [ "libreoffice-writer.desktop" "libreoffice-calc.desktop" "libreoffice-impress.desktop" "libreoffice-draw.desktop" ]; visibleWhen.path = "ojuny.apps.office.enable"; visibleWhen.equals = true; applyCommand = "xdg-mime default %%val%% application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         xdg.mime.defaultApplications."application/vnd.openxmlformats-officedocument.wordprocessingml.document" =
           "libreoffice-writer.desktop";
 
-        xdg.mime.defaultApplications."application/msword" = "libreoffice-writer.desktop";
-
-        xdg.mime.defaultApplications."application/rtf" = "libreoffice-writer.desktop";
-
         # @option widget = "dropdown"; label = "Spreadsheets"; group = "Default applications"; groupOrder = 15; choices = [ "libreoffice-writer.desktop" "libreoffice-calc.desktop" "libreoffice-impress.desktop" "libreoffice-draw.desktop" ]; visibleWhen.path = "ojuny.apps.office.enable"; visibleWhen.equals = true; applyCommand = "xdg-mime default %%val%% application/vnd.oasis.opendocument.spreadsheet";
         xdg.mime.defaultApplications."application/vnd.oasis.opendocument.spreadsheet" =
-          "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.spreadsheet-template" =
-          "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" =
-          "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.ms-excel" = "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."text/csv" = "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.formula" =
-          "libreoffice-calc.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.formula-template" =
           "libreoffice-calc.desktop";
 
         # @option widget = "dropdown"; label = "Presentations"; group = "Default applications"; groupOrder = 15; choices = [ "libreoffice-writer.desktop" "libreoffice-calc.desktop" "libreoffice-impress.desktop" "libreoffice-draw.desktop" ]; visibleWhen.path = "ojuny.apps.office.enable"; visibleWhen.equals = true; applyCommand = "xdg-mime default %%val%% application/vnd.oasis.opendocument.presentation";
         xdg.mime.defaultApplications."application/vnd.oasis.opendocument.presentation" =
           "libreoffice-impress.desktop";
 
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.presentation-template" =
-          "libreoffice-impress.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.openxmlformats-officedocument.presentationml.presentation" =
-          "libreoffice-impress.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.ms-powerpoint" =
-          "libreoffice-impress.desktop";
-
         # @option widget = "dropdown"; label = "Drawings"; group = "Default applications"; groupOrder = 15; choices = [ "libreoffice-writer.desktop" "libreoffice-calc.desktop" "libreoffice-impress.desktop" "libreoffice-draw.desktop" ]; visibleWhen.path = "ojuny.apps.office.enable"; visibleWhen.equals = true; applyCommand = "xdg-mime default %%val%% application/vnd.oasis.opendocument.graphics";
         xdg.mime.defaultApplications."application/vnd.oasis.opendocument.graphics" =
           "libreoffice-draw.desktop";
-
-        xdg.mime.defaultApplications."application/vnd.oasis.opendocument.graphics-template" =
-          "libreoffice-draw.desktop";
       };
-    };
-
-  # LibreOffice is installed conditionally; no @option, so it stays out of a
-  # packages widget the GUI would try to render.
-  flake.modules.nixos.applications-office-apps =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    {
-      environment.systemPackages =
-        lib.optionals config.ojuny.apps.office.enable [ pkgs.libreoffice-fresh ]
-        ++ lib.optionals config.ojuny.apps.office.enable (with pkgs.hunspellDicts; [
-          en_US
-          de_DE
-        ]);
     };
 
   flake.modules.nixos.applications-obsidian =
@@ -181,16 +129,6 @@
       ...
     }:
     {
-      options.ojuny.apps.obsidian = {
-        enable = lib.mkEnableOption "the Obsidian note application";
-
-        vaults = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [ ];
-          description = "Vault names that receive per-vault Stylix theming.";
-        };
-      };
-
       config = {
         # @option widget = "switch"; label = "Obsidian"; group = "Obsidian"; groupOrder = 10; order = 10; description = "Install Obsidian. Off by default because it is proprietary.";
         ojuny.apps.obsidian.enable = false;
@@ -203,32 +141,6 @@
 
         desktop.ojuny.defaultApps =
           lib.optionals config.ojuny.apps.obsidian.enable [ pkgs.obsidian ];
-      };
-    };
-
-  # Obsidian reads per-vault appearance files. The Stylix target writes the
-  # default appearance and one CSS snippet per vault name. Existing vaults not
-  # listed in `ojuny.apps.obsidian.vaults` keep their own settings until their
-  # name is added. Vault contents are user data and never enter the Nix store.
-  #
-  # The Home Manager Obsidian module in the pinned checkout has no
-  # `mutableSettings` option, so appearance files for listed vaults remain
-  # declarative and can be rewritten on activation.
-  flake.modules.homeManager.applications-obsidian =
-    {
-      config,
-      lib,
-      pkgs,
-      osConfig ? { },
-      ...
-    }:
-    {
-      config = {
-        programs.obsidian.enable = osConfig.ojuny.apps.obsidian.enable or false;
-
-
-        stylix.targets.obsidian.vaultNames =
-          osConfig.ojuny.apps.obsidian.vaults or [ ];
       };
     };
 

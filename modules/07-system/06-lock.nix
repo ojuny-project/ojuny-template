@@ -10,28 +10,10 @@
 { self, inputs, ... }: {
 
   flake.modules.nixos.system-lock =
+    { ... }:
+
     {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-
-    let
-      u2fModes = {
-        "security-key-only" = "or";
-        "second-factor" = "and";
-      };
-    in
-    {
-
-      options.ojuny.dux.u2fMode = lib.mkOption {
-        type = lib.types.enum (lib.attrNames u2fModes);
-        default = "security-key-only";
-        description = "DMS u2fMode.";
-      };
-
-      options.ojuny.authentication.fingerprint.enable = lib.mkEnableOption "fingerprint authentication";
+      imports = [ self.modules.nixos.system-lock-backend ];
 
       config = {
 
@@ -50,8 +32,6 @@
         # @option widget = "switch"; label = "Fingerprint login and unlock"; group = "Authentication"; groupOrder = 20; order = 10; description = "Enable fprintd and fingerprint prompts for login, greetd, sudo, polkit and the lock screen. Enroll a finger with fprintd-enroll. Password fallback stays enabled.";
         ojuny.authentication.fingerprint.enable = false;
 
-        desktop.ojuny.dux.settings.enableFprint = config.ojuny.authentication.fingerprint.enable;
-
         # @option widget = "spin"; label = "Fingerprint attempts"; group = "Authentication"; groupOrder = 20; order = 20; min = 1; max = 30; advanced = true; visibleWhen.path = "desktop.ojuny.dux.settings.enableFprint"; visibleWhen.equals = true; description = "Failed attempts before the reader is locked out."; applyCommand = "dms ipc call settings set maxFprintTries %%val%%";
         desktop.ojuny.dux.settings.maxFprintTries = 15;
 
@@ -60,8 +40,6 @@
 
         # @option widget = "dropdown"; label = "Security key mode"; group = "Authentication"; groupOrder = 20; order = 40; choices = [ "security-key-only" "second-factor" ]; visibleWhen.path = "desktop.ojuny.dux.settings.enableU2f"; visibleWhen.equals = true; description = "Security key only unlocks with the key and does not require the password. Second factor requires the password and then the key."; applyCommand = "case %%val%% in security-key-only) v=or;; second-factor) v=and;; esac; dms ipc call settings set u2fMode $v";
         ojuny.dux.u2fMode = "security-key-only";
-
-        desktop.ojuny.dux.settings.u2fMode = u2fModes.${config.ojuny.dux.u2fMode};
 
         # @option widget = "switch"; label = "Security key shortcut"; group = "Authentication"; groupOrder = 20; order = 50; visibleWhen.path = "desktop.ojuny.dux.settings.enableU2f"; visibleWhen.equals = true; description = "Bind a key combination that asks for the security key instead of the password on the lock screen."; applyCommand = "dms ipc call settings set lockScreenSecurityKeyShortcutEnabled %%val%%";
         desktop.ojuny.dux.settings.lockScreenSecurityKeyShortcutEnabled = false;
@@ -162,28 +140,6 @@
 
         # @option widget = "switch"; label = "Automatic cycling"; group = "Video screensaver"; groupOrder = 40; order = 30; advanced = true; visibleWhen.path = "desktop.ojuny.dux.settings.lockScreenVideoEnabled"; visibleWhen.equals = true; applyCommand = "dms ipc call settings set lockScreenVideoCycling %%val%%";
         desktop.ojuny.dux.settings.lockScreenVideoCycling = false;
-
-        services.fprintd.enable = config.ojuny.authentication.fingerprint.enable;
-
-        environment.systemPackages = lib.mkIf config.ojuny.authentication.fingerprint.enable [
-          pkgs.fprintd
-          pkgs.libfprint
-          (pkgs.writeShellApplication {
-            name = "ojuny-fingerprint-detect";
-            runtimeInputs = [ pkgs.coreutils pkgs.fprintd ];
-            text = ''
-              exec fprintd-list "$(id -un)"
-            '';
-          })
-        ];
-
-        security.pam.services = lib.mkIf config.ojuny.authentication.fingerprint.enable {
-          login.fprintAuth = true;
-          greetd.fprintAuth = true;
-          sudo.fprintAuth = true;
-          "polkit-1".fprintAuth = true;
-          dankshell.fprintAuth = true;
-        };
 
       };
     };

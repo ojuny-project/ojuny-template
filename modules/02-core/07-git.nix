@@ -10,44 +10,9 @@
 { self, inputs, ... }: {
 
   flake.modules.nixos.applications-git =
+    { pkgs, ... }:
     {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    {
-
-      options.ojuny.git = {
-        credentialHelper = lib.mkOption {
-          type = lib.types.enum [
-            "cache"
-            "cache --timeout=3600"
-            "store"
-            "libsecret"
-            "!gh auth git-credential"
-          ];
-          default = "cache";
-          description = "Git credential helper.";
-        };
-
-        credentialFile = lib.mkOption {
-          type = lib.types.str;
-          default = "";
-          description = "File the store helper keeps credentials in.";
-        };
-
-        askpass = lib.mkOption {
-          type = lib.types.enum [
-            "ssh-askpass"
-            "systemd-askpass"
-            "ksshaskpass"
-            "lxqt-openssh-askpass"
-          ];
-          default = "ssh-askpass";
-          description = "Command used by Git to prompt for a password.";
-        };
-      };
+      imports = [ self.modules.nixos.applications-git-backend ];
 
       config = {
 
@@ -104,21 +69,11 @@
         # @option widget = "dropdown"; label = "Askpass helper"; group = "Credentials"; groupOrder = 50; order = 10; choices = [ "ssh-askpass" "systemd-askpass" "ksshaskpass" "lxqt-openssh-askpass" ]; description = "Command that prompts for a password."; applyCommand = "git config --global core.askpass %%val%%";
         ojuny.git.askpass = "ssh-askpass";
 
-        # Derived from the dropdown above; no @option.
-        programs.git.config.core.askpass = config.ojuny.git.askpass;
-
         # @option widget = "dropdown"; label = "Credential helper"; group = "Credentials"; groupOrder = 50; order = 20; description = "Where stored credentials live. Pick store to keep them in a file."; choices = [ "cache" "cache --timeout=3600" "store" "libsecret" "!gh auth git-credential" ]; applyCommand = "git config --global credential.helper %%val%%";
         ojuny.git.credentialHelper = "cache";
 
         # @option widget = "text"; label = "Credential file"; group = "Credentials"; groupOrder = 50; order = 30; description = "File the store helper keeps credentials in."; visibleWhen.path = "ojuny.git.credentialHelper"; visibleWhen.equals = "store"; applyCommand = "if [ -n %%val%% ]; then git config --global credential.helper \"store --file=%%val%%\"; else git config --global credential.helper store; fi";
         ojuny.git.credentialFile = "";
-
-        # Derived: no @option, the two controls above feed it.
-        programs.git.config.credential.helper =
-          if config.ojuny.git.credentialHelper == "store" && config.ojuny.git.credentialFile != "" then
-            "store --file=${config.ojuny.git.credentialFile}"
-          else
-            config.ojuny.git.credentialHelper;
 
         # @option widget = "switch"; label = "Store HTTP path"; group = "Credentials"; groupOrder = 50; order = 40; description = "Keep credentials per host and path, not just per host."; applyCommand = "git config --global credential.useHttpPath %%val%%";
         programs.git.config.credential.useHttpPath = false;
