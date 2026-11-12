@@ -15,7 +15,21 @@ def nix_string(value):
     return json.dumps(text, ensure_ascii=False)
 
 
-def user_module(username, fullname, hashed_password, shell, version):
+def user_module(username, fullname, hashed_password, shell, version, home_manager):
+    home_import = (
+        " inputs.home-manager.nixosModules.home-manager" if home_manager else ""
+    )
+    home_option = " homeManager = true;" if home_manager else ""
+    home_block = (
+        """
+      home-manager.users = {{
+        {username} = {{
+          home.stateVersion = "{version}";
+        }};
+      }};""".format(username=username, version=version)
+        if home_manager
+        else ""
+    )
     return """/* @menu
    displayname = "Users";
    icon = "avatar-default-symbolic";
@@ -28,10 +42,10 @@ def user_module(username, fullname, hashed_password, shell, version):
 
   flake.modules.nixos.users = {{ pkgs, ... }}: {{
 
-    imports = [ inputs.home-manager.nixosModules.home-manager ];
+    imports = [{home_import} ];
 
     config = {{
-      /* @option widget = "users"; label = "Accounts"; homeManager = true; */
+      /* @option widget = "users"; label = "Accounts";{home_option} */
       users.users = {{
         {username} = {{
           isNormalUser = true;
@@ -43,12 +57,7 @@ def user_module(username, fullname, hashed_password, shell, version):
           shell = pkgs.{shell};
         }};
       }};
-
-      home-manager.users = {{
-        {username} = {{
-          home.stateVersion = "{version}";
-        }};
-      }};
+{home_block}
     }};
 
   }};
@@ -60,6 +69,9 @@ def user_module(username, fullname, hashed_password, shell, version):
         hashed_password=nix_string(hashed_password),
         shell=shell,
         version=version,
+        home_import=home_import,
+        home_option=home_option,
+        home_block=home_block,
     )
 
 
@@ -95,6 +107,16 @@ def copy_template(template, root, force):
 
 def configure(args, root):
     interactive = not args.non_interactive
+    flake_text = ""
+    try:
+        with open(os.path.join(root, "flake.nix")) as handle:
+            flake_text = handle.read()
+    except OSError:
+        pass
+    if args.home_manager is None:
+        home_manager = "home-manager" in flake_text
+    else:
+        home_manager = args.home_manager
     flake_structure.ensure_configuration(
         root,
         {
@@ -117,6 +139,7 @@ def configure(args, root):
             args.hashed_password,
             args.shell,
             args.state_version,
+            home_manager,
         ),
         interactive=interactive,
         choice=args.select,
@@ -159,6 +182,20 @@ def main():
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--non-interactive", action="store_true")
     parser.add_argument("--select", default=None, help="explicit module file choice")
+    home = parser.add_mutually_exclusive_group()
+    home.add_argument(
+        "--home-manager",
+        dest="home_manager",
+        action="store_true",
+        help="generate the Home Manager block even if the flake does not declare it",
+    )
+    home.add_argument(
+        "--no-home-manager",
+        dest="home_manager",
+        action="store_false",
+        help="omit the Home Manager block",
+    )
+    parser.set_defaults(home_manager=None)
     args = parser.parse_args()
 
     if not re.fullmatch(r"[a-z_][a-z0-9_-]*", args.username):
