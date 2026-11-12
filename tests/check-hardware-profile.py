@@ -113,7 +113,7 @@ def parse_aliases(text):
 def parse_choices(text):
     match = re.search(r"choices = \[(.*?)\];", text, re.S)
     if not match:
-        raise SystemExit("check-hardware-profile: missing choices list in 09-facter.nix")
+        return None
     return re.findall(r'"([^"]*)"', match.group(1))
 
 
@@ -243,9 +243,19 @@ def main():
         )
 
     supported = supported_profiles(nix_rows, nix_gpu)
-    check(choices[:1] == ["auto"], "dropdown must start with auto")
-    check(choices[1:] == supported, "dropdown choices do not match the supported profiles")
-    check(choices[1:] == sorted(choices[1:]), "dropdown profile choices are not sorted")
+    if choices is not None:
+        check(choices[:1] == ["auto"], "dropdown must start with auto")
+        check(choices[1:] == supported, "dropdown choices do not match the supported profiles")
+        check(choices[1:] == sorted(choices[1:]), "dropdown profile choices are not sorted")
+    else:
+        check(
+            re.search(r'@option\b[^\n]*widget\s*=\s*"facter"', page_text) is not None,
+            "09-facter.nix must declare the facter widget when it has no choices list",
+        )
+        check(
+            re.search(r"ojuny\.hardware\.profile\s*=\s*\"auto\"", page_text) is not None,
+            "09-facter.nix must keep the hardware profile default at auto",
+        )
 
     check(
         [tuple(row) for row in docs_rows] == nix_rows,
