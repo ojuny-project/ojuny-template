@@ -67,6 +67,8 @@ the flake.
 ## 5. Requirements
 
 - `git` must be available on `PATH`; the script clones your fork with it.
+- `python3` is supplied by the setup app wrapper and runs
+  `scripts/flake_structure.py`; it is not required on the host.
 - `nix-command` and `flakes` must be enabled before running the installer,
   for example `nix run github:ojuny-project/ojuny-template#setup`. On a fresh install
   they are off and every flake command fails with `experimental Nix feature
@@ -91,7 +93,8 @@ the flake.
 
 - Location: `scripts/setup.sh` (portable bash), exposed as `nix run .#setup` via
   a `perSystem` app that wraps the script with the needed tools (`git`,
-  `nixos-generate-config`, `nixos-facter`, `nixos-rebuild`, `mkpasswd`, `nix`)
+  `nixos-generate-config`, `nixos-facter`, `nixos-rebuild`, `mkpasswd`, `nix`,
+  `python3`)
   (D14a). The clone target defaults to `~/repos/nix-flake` and can be changed
   with the prompt or the `OJUNY_CLONE_DIR` environment variable.
 

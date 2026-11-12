@@ -81,6 +81,13 @@
 
         services.greetd.greeterManagesPlymouth = lib.mkIf config.ojuny.plymouth.enable true;
 
+        # The greeter's compositor cannot acquire the DRM device while
+        # plymouthd holds it. Quit Plymouth with the last frame retained before
+        # greetd starts sway; the retained splash stays visible until sway draws.
+        systemd.services.greetd.preStart = lib.mkIf config.ojuny.plymouth.enable ''
+          ${lib.getExe' config.boot.plymouth.package "plymouth"} quit --retain-splash || true
+        '';
+
         systemd.services.plymouth-quit.enable = lib.mkIf config.ojuny.plymouth.enable false;
         systemd.services.plymouth-quit-wait.enable = lib.mkIf config.ojuny.plymouth.enable false;
 

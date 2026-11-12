@@ -18,9 +18,11 @@ tagged, so pin the repository by commit.
 - NixOS with the `nix-command` and `flakes` experimental features enabled. On a
   fresh install they are off, and every flake command fails.
 - `git` on `PATH`.
+- `python3` is supplied by the setup app wrapper and does not need to be on
+  `PATH`.
 - `x86_64-linux`. Other systems are unsupported.
-- Disk and memory use are not measured. The pre-build step builds ten targets
-  one at a time to limit peak memory.
+- Disk and memory use are not measured. The pre-build step builds fourteen
+  targets one at a time to limit peak memory.
 
 ## Install and first run
 

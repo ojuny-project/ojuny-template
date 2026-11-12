@@ -171,6 +171,7 @@
             runtimeInputs = [
               pkgs.mkpasswd
               pkgs.coreutils
+              pkgs.python3
             ];
             text = builtins.readFile ./scripts/generate-user.sh;
           };
@@ -285,6 +286,7 @@
                   pkgs.gnused
                   pkgs.mkpasswd
                   pkgs.nix
+                  pkgs.python3
                 ];
                 text = ''
                   export OJUNY_TEMPLATE_SOURCE="${inputs.self}"
@@ -329,6 +331,7 @@
                   pkgs.nixos-rebuild
                   pkgs.mkpasswd
                   pkgs.nix
+                  pkgs.python3
                   pkgs.git
                   pkgs.coreutils
                   pkgs.gnused
@@ -338,6 +341,7 @@
                     runtimeInputs = [
                       pkgs.nixos-install-tools
                       pkgs.nixos-facter
+                      pkgs.python3
                       pkgs.coreutils
                       pkgs.gnused
                       pkgs.gnugrep
@@ -351,6 +355,7 @@
                     runtimeInputs = [
                       pkgs.gnused
                       pkgs.coreutils
+                      pkgs.python3
                     ];
                     text = builtins.readFile ./scripts/create-new-system.sh;
                   })
@@ -371,6 +376,7 @@
                   pkgs.coreutils
                   pkgs.gnused
                   pkgs.gnugrep
+                  pkgs.python3
                   generateUser
                 ];
                 text = builtins.readFile ./scripts/handover.sh;
@@ -390,6 +396,7 @@
                   pkgs.coreutils
                   pkgs.gnused
                   pkgs.gnugrep
+                  pkgs.python3
                 ];
                 text = builtins.readFile ./scripts/factory-reset.sh;
               }
@@ -486,6 +493,18 @@
               }
               ''
                 python3 ${source}/tests/check-fixed-paths.py
+                touch $out
+              '';
+          checks.runtime-deps =
+            let
+              source = pkgs.lib.cleanSource ./.;
+            in
+            pkgs.runCommand "check-runtime-deps"
+              {
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                python3 ${source}/tests/check-runtime-deps.py
                 touch $out
               '';
 
