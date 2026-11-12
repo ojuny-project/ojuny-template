@@ -112,6 +112,7 @@ differs from the generator output.
 - `modules/backend/01-system/14-deploy-rs.nix`
 - `modules/backend/01-system/bootorder.sh`
 - `modules/backend/01-system/device-quirks.nix`
+- `modules/backend/01-system/lanzaboote-cleanup.sh`
 - `modules/backend/01-system/multiboot-cleanup.sh`
 - `modules/backend/01-system/multiboot.sh`
 - `modules/backend/01-system/recovery-cleanup.sh`

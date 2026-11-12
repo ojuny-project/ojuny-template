@@ -51,6 +51,12 @@ case "${1:-}" in
     printf 'BootOrder: %s\n' "$(cat "$state/order")"
     ;;
 -o)
+    for number in $(printf '%s' "$2" | tr ',' ' '); do
+        if ! grep -q "^Boot$number" "$state/entries"; then
+            printf 'entry %s does not exist\n' "$number" >&2
+            exit 1
+        fi
+    done
     printf '%s\n' "$2" >"$state/order"
     printf '%s\n' "$2" >>"$state/order_writes"
     ;;
@@ -179,17 +185,25 @@ all_entries() {
 }
 
 run_install_scenario() {
-    local name="$1" previous="$2" current="$3" expected="$4" recovery="${5:-false}"
+    local name="$1" previous="$2" current="$3" expected="$4" recovery="${5:-false}" stale="${6:-}"
     local entries actual position external
 
     entries="$(all_entries "$previous$current")"
     printf '%s\n' "$entries" >"$WORK/state/entries"
     : >"$WORK/state/creates"
     : >"$WORK/state/order_writes"
-    numbers_of "$current" >"$WORK/state/order"
+    if [ -n "$stale" ]; then
+        printf '%s,%s\n' "$(numbers_of "$current")" "$stale" >"$WORK/state/order"
+    else
+        numbers_of "$current" >"$WORK/state/order"
+    fi
     {
         printf 'BootCurrent: 0000\n'
-        printf 'BootOrder: %s\n' "$(numbers_of "$previous")"
+        if [ -n "$stale" ]; then
+            printf 'BootOrder: %s,%s\n' "$(numbers_of "$previous")" "$stale"
+        else
+            printf 'BootOrder: %s\n' "$(numbers_of "$previous")"
+        fi
         printf '%s\n' "$entries"
     } >"$WORK/state/previous"
 
@@ -242,6 +256,34 @@ run_missing_scenario() {
     [ "$(tokens_of "$(cat "$WORK/state/order")")" = "$expected" ] || fail "order changed on second run"
 }
 
+run_stale_scenario() {
+    local name="$1" order_tokens="$2" stale="$3" expected="$4" recovery="${5:-true}"
+    local entries actual
+
+    entries="$(all_entries "$order_tokens")"
+    printf '%s\n' "$entries" >"$WORK/state/entries"
+    : >"$WORK/state/creates"
+    : >"$WORK/state/order_writes"
+    printf '%s,%s\n' "$(numbers_of "$order_tokens")" "$stale" >"$WORK/state/order"
+
+    printf '%s: ' "$name"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" 2>"$WORK/stderr" >/dev/null
+    actual="$(tokens_of "$(cat "$WORK/state/order")")"
+    if [ "$actual" = "$expected" ]; then
+        printf '%s\n' "$actual"
+    else
+        printf '%s (expected %s)\n' "$actual" "$expected"
+        fail "expected $expected, got $actual"
+    fi
+    grep -qF "dropping missing entries: $stale" "$WORK/stderr" ||
+        fail "stale entry $stale was not reported"
+
+    : >"$WORK/state/order_writes"
+    OJUNY_RECOVERY_ENABLED="$recovery" bash "$SCRIPT" >/dev/null 2>&1
+    [ ! -s "$WORK/state/order_writes" ] || fail "second run reordered again"
+    [ "$(tokens_of "$(cat "$WORK/state/order")")" = "$expected" ] || fail "order changed on second run"
+}
+
 run_scenario "windows, ojuny, recovery" WOR ORW
 run_scenario "usb, windows, ojuny, recovery" UWOR UORW
 run_scenario "windows, usb, ojuny, recovery" WUOR OURW
@@ -262,6 +304,8 @@ run_missing_scenario "ojuny entry present but not in BootOrder" WU OWU OWU
 run_missing_scenario "ojuny entry missing with usb present" UW OUW UOW
 run_missing_scenario "ojuny and recovery missing from BootOrder" WU ORWU ORWU
 run_missing_scenario "recovery disabled, ojuny missing from BootOrder" WU OWU OWU false
+run_stale_scenario "stale entry in BootOrder" WOR 2002 ORW
+run_stale_scenario "stale entry, recovery disabled" WO 2002 OW false
 
 run_install_scenario "install: new entry at top" UW OUW UOW
 run_install_scenario "install: fallback entry after new entry" UW OFUW UOFW
@@ -272,6 +316,7 @@ run_install_scenario "install: no other internal entry" U OU UO
 run_install_scenario "install: ojuny entry missing" UW UW UW
 run_install_scenario "install: windows first" WU OWU OWU
 run_install_scenario "install: recovery on the current ESP" UW ORUW UORW true
+run_install_scenario "install: stale entry in firmware" UW OUW UOW false 2002
 
 if [ "$FAILED" -eq 0 ]; then
     printf 'all scenarios passed\n'

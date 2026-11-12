@@ -46,11 +46,13 @@
       self.modules.nixos.desktop-dashboard
       self.modules.nixos.desktop-notifications
       self.modules.nixos.desktop-osd
+      self.modules.nixos.desktop-sounds
       self.modules.nixos.desktop-screensaver
       self.modules.nixos.desktop-nightlight
       self.modules.nixos.desktop-audio
       self.modules.nixos.desktop-clipboard
       self.modules.nixos.desktop-menu
+      self.modules.nixos.desktop-dot
       self.modules.nixos.desktop-plugins
 
       self.modules.nixos.desktop-binds

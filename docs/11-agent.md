@@ -142,7 +142,10 @@ runs `sync --continue`. `sync --abort` aborts an in-progress merge.
 - A host configuration evaluation.
 
 It does not build the system, switch generations, or change services. The
-contributor gate remains `sh scripts/check-baseline.sh`.
+contributor gate remains `sh scripts/check-baseline.sh`. That script runs
+`nix flake check --no-build` and then builds the fixture system explicitly, so
+the flake check stays free of import-from-derivation while the system build
+keeps its coverage.
 
 ## Documentation and AGENTS.md
 

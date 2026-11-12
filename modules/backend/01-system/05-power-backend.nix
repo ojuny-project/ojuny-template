@@ -348,6 +348,10 @@
           "restart"
         ];
 
+        services.udev.extraRules = ''
+          ACTION=="add|change", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chgrp video /sys/class/backlight/%k/brightness", RUN+="${pkgs.coreutils}/bin/chmod 0664 /sys/class/backlight/%k/brightness"
+        '';
+
       };
     };
 

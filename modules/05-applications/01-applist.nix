@@ -25,9 +25,20 @@
         "x-scheme-handler/webcals"
       ];
 
-      calendarDefaults = lib.genAttrs calendarMimeTypes (
-        _: lib.mkDefault "dev.duxlabs.calendar.desktop"
-      );
+      calendarDefaults = lib.genAttrs calendarMimeTypes (_: lib.mkDefault "dev.duxlabs.calendar.desktop");
+
+      fileManagerMimeTypes = [
+        "inode/directory"
+        "x-scheme-handler/trash"
+        "x-scheme-handler/sftp"
+        "x-scheme-handler/smb"
+        "x-scheme-handler/ftp"
+        "x-scheme-handler/webdav"
+        "x-scheme-handler/dav"
+        "x-scheme-handler/davs"
+      ];
+
+      fileManagerDefaults = lib.genAttrs fileManagerMimeTypes (_: "dev.duxlabs.files.desktop");
     in
     {
       imports = [ self.modules.nixos.applications-mount-image ];
@@ -79,6 +90,9 @@
         xdg.mime.defaultApplications = lib.mkMerge [
           (lib.mapAttrs (_: entry: entry.desktop) config.ojuny.apps.mimeDefaults)
           calendarDefaults
+          (lib.mkIf (
+            config.desktop.ojuny.fileManager.enable && config.desktop.ojuny.fileManager.package == "dux-files"
+          ) fileManagerDefaults)
         ];
       };
 

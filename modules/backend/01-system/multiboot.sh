@@ -23,6 +23,11 @@ sbctl_cmd() {
     fi
 }
 
+efi_is_signed() {
+    sbctl_cmd --json verify "$1" 2>/dev/null |
+        jq -e 'type == "array" and length == 1 and .[0].is_signed == 1' >/dev/null
+}
+
 cleanup_mounts() {
     local mount
     if [ "${#mounts[@]}" -eq 0 ]; then
@@ -125,19 +130,15 @@ sign_helper() {
     local key_marker="$helper_dir/.ojuny-refind-key"
     local key_id
     key_id="$(sha256sum "$pki_bundle/keys/db/db.pem" 2>/dev/null | cut -d" " -f1 || true)"
-    if sbctl_cmd verify "$refind_bin" >/dev/null 2>&1
-    then
-        if [ -z "$key_id" ] || { [ -f "$key_marker" ] && [ "$(cat "$key_marker")" = "$key_id" ]; }; then
-            return 0
-        fi
+    if ! efi_is_signed "$refind_bin"; then
+        sbctl_cmd sign -s "$refind_bin" || true
     fi
-
-    if sbctl_cmd sign -s "$refind_bin"; then
+    if efi_is_signed "$refind_bin"; then
         if [ -n "$key_id" ]; then
             printf '%s\n' "$key_id" >"$key_marker"
         fi
     else
-        echo "ojuny-multiboot: failed to sign $refind_bin" >&2
+        echo "ojuny-multiboot: $refind_bin is not signed" >&2
     fi
 }
 
@@ -146,7 +147,7 @@ helper_state() {
         printf 'not-required\n'
         return 0
     fi
-    if sbctl_cmd verify "$refind_bin" >/dev/null 2>&1; then
+    if efi_is_signed "$refind_bin"; then
         printf 'signed\n'
     else
         printf 'unsigned\n'
@@ -247,17 +248,31 @@ scan_esp() {
 }
 
 list_esps() {
-    lsblk -J -o PATH,TYPE,RM,TRAN,PARTTYPE,MOUNTPOINT 2>/dev/null |
+    lsblk --tree -J -o NAME,PATH,TYPE,RM,TRAN,PARTTYPE,MOUNTPOINT,PKNAME 2>/dev/null |
         jq -r '
-            .blockdevices[]
-            | select(.type == "disk")
+            def is_esp:
+                ((.parttype // "") | ascii_downcase) == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
+            def row($disk):
+                [$disk, .path, (.mountpoint // "")] | @tsv;
+            def walk_esp($disk):
+                (if is_esp then row($disk) else empty end),
+                ((.children // [])[] | walk_esp($disk));
+            [ .blockdevices[] ] as $nodes
+            | [ $nodes[] | select(.type == "disk") ] as $disks
+            | $disks[]
             | select((.rm // false) == false)
-            | select((.tran // "") != "usb")
-            | .path as $disk
-            | .children[]?
-            | select((.parttype // "") == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b")
-            | [$disk, .path, (.mountpoint // "")] | @tsv
-        '
+            | select(((.tran // "") | ascii_downcase) != "usb")
+            | . as $disk
+            | (
+                (($disk.children // [])[] | walk_esp($disk.path)),
+                (
+                    $nodes[]
+                    | select(.type == "part" and is_esp)
+                    | select((.pkname // "") == ($disk.path | split("/") | last))
+                    | row($disk.path)
+                )
+            )
+        ' | sort -u
 }
 
 copy_helper

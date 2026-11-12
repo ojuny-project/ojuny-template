@@ -1,11 +1,16 @@
 { self, ... }: {
 
   flake.modules.nixos.system-first-boot =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      normalUsers = lib.filter (
-        name: config.users.users.${name}.isNormalUser or false
-      ) (lib.attrNames config.users.users);
+      normalUsers = lib.filter (name: config.users.users.${name}.isNormalUser or false) (
+        lib.attrNames config.users.users
+      );
     in
     lib.mkIf (normalUsers != [ ]) (
       let
@@ -93,6 +98,7 @@
         name = "ojuny-multiboot-cleanup";
         runtimeInputs = with pkgs; [
           coreutils
+          sbctl
         ];
         text = builtins.readFile ./multiboot-cleanup.sh;
       };
@@ -105,10 +111,7 @@
         OJUNY_REFIND_ASSETS = refindAssets;
         OJUNY_CAN_TOUCH_EFI = lib.boolToString config.boot.loader.efi.canTouchEfiVariables;
         OJUNY_PKI_BUNDLE =
-          if config.boot.lanzaboote.pkiBundle == null then
-            ""
-          else
-            toString config.boot.lanzaboote.pkiBundle;
+          if config.boot.lanzaboote.pkiBundle == null then "" else toString config.boot.lanzaboote.pkiBundle;
       };
     in
     {
@@ -141,6 +144,7 @@
               OJUNY_BOOT_MOUNT = bootMountPoint;
               OJUNY_HELPER_DIR = helperDir;
               OJUNY_ENTRY_FILE = entryFile;
+              OJUNY_SBCTL_CONF = "/var/lib/ojuny/sbctl.conf";
             };
             unitConfig.ConditionPathExists = "/sys/firmware/efi";
             unitConfig.ConditionPathIsMountPoint = bootMountPoint;
@@ -174,10 +178,11 @@
       systemd.services.ojuny-bootorder = {
         description = "Keep the Ojuny entries first among the internal boot entries";
         wantedBy = [ "multi-user.target" ];
-        after =
-          [ "local-fs.target" ]
-          ++ lib.optional recoveryEnabled "ojuny-recovery.service"
-          ++ lib.optional config.ojuny.multiboot.enable "ojuny-multiboot.service";
+        after = [
+          "local-fs.target"
+        ]
+        ++ lib.optional recoveryEnabled "ojuny-recovery.service"
+        ++ lib.optional config.ojuny.multiboot.enable "ojuny-multiboot.service";
         before = [ "shutdown.target" ];
         unitConfig.ConditionPathExists = "/sys/firmware/efi";
         environment = {
@@ -203,14 +208,12 @@
         };
         Service = {
           Type = "oneshot";
-          ExecStart = "${
-            pkgs.writeShellScript "ojuny-login-ready" ''
-              log="$HOME/first-boot.log"
-              if [ -e "$log" ] && ! grep -q '^login_ready=' "$log"; then
-                printf 'login_ready=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$log"
-              fi
-            ''
-          }";
+          ExecStart = "${pkgs.writeShellScript "ojuny-login-ready" ''
+            log="$HOME/first-boot.log"
+            if [ -e "$log" ] && ! grep -q '^login_ready=' "$log"; then
+              printf 'login_ready=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$log"
+            fi
+          ''}";
         };
         Install = {
           WantedBy = [ "graphical-session.target" ];

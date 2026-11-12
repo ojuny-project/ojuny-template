@@ -51,8 +51,8 @@ category; the `@menu` `category` string is authoritative.
 |----------|-------|
 | `01-Users` | user, commonsettings |
 | `02-Core` | display, input, binds, gestures, theme, typography, compositor, shell, browser, git, terminal, autostart, updates, nixsettings, audio |
-| `03-Desktop` | login, mangosettings, mangomaster, mangodwindle, scroller, mangoworkspaces, notifications, screensaver, clipboard, monocle-deck |
-| `04-GUI` | bar, dock, launcher, dashboard, controlcenter, menu |
+| `03-Desktop` | login, mangosettings, mangomaster, mangodwindle, scroller, mangoworkspaces, notifications, screensaver, clipboard, sounds, monocle-deck |
+| `04-GUI` | bar, dock, launcher, dashboard, controlcenter, menu, dot and floating island |
 | `05-Applications` | applist, screenshot, multimedia, office, vesktop, steam, kdeconnect, app format compatibility |
 | `06-Utility` | dux-tools, webapps, plugins |
 | `07-System` | configuration, networking, bluetooth, graphics, plymouth |
@@ -77,6 +77,10 @@ current working set for review.
 
 - `01-display.nix` `[menu]`. Monitors, tearing and HDR. Monitor refresh rates
   accept fractional values so 59.94 Hz and similar modes are written exactly.
+  Mango owns primary-output selection and the left-to-right fallback when the
+  configuration has no primary. The template does not prune disconnected
+  outputs and does not pick a primary; deleting a stale output is a user
+  action.
 - `02-input.nix` `[menu]`. Keyboard, mouse, trackpad, touch and Fcitx5 input
   methods.
 - `03-binds.nix` `[menu]`. Key, mouse, axis and gesture bindings, plus the
@@ -85,7 +89,9 @@ current working set for review.
 - `04-gestures.nix` `[menu]`. Touchpad swipe gestures and swipe tuning.
 - `05-theme.nix` `[menu]`. Palette, polarity, popup opacity and wallpaper.
 - `05-typography.nix` `[menu]`. Fonts, shell text rendering, icon themes and
-  cursors.
+  cursors. The default monospace family is `CaskaydiaCove Nerd Font Mono`, the
+  registered monospace family in the Caskaydia Cove package; the sans and serif
+  defaults stay on `CaskaydiaCove Nerd Font`.
 - `05-compositor.nix` `[menu]` "Compositor looks". Gaps, borders, corner
   radius, mango blur, shadows, decoration, animations and app theming.
 - `05-shell.nix` `[menu]` "Shell looks". Interface shape and density, surface
@@ -104,12 +110,24 @@ current working set for review.
   auto is on and the scan interval defaults to 10 minutes. Enabling "Use only
   the LAN cache" hides the substituter list because the local daemon replaces
   it and fetches upstream paths itself.
+- `12-audio.nix` `[menu]`. PipeWire audio server, clock and JACK compatibility.
+  The backend installs the freedesktop sound theme and sets the system default
+  `org.gnome.desktop.sound theme-name` to `freedesktop`, so the Sounds page
+  "Use system sound theme" switch resolves its files under
+  `/run/current-system/sw/share/sounds`.
 
 ### 03-desktop
 
 - `00-mango.nix` `[no menu]`. Under-the-hood mangoWM + Dux Modular Shell session
   switch (D5).
-- `01-login.nix` `[menu]`. Greeter and display manager (D9).
+- `01-login.nix` `[menu]`. Greeter and display manager (D9). The greeter
+  (`greetd`) is not sandboxed because it is the parent of the user session.
+  Every systemd sandbox setting on the unit is inherited by the desktop, so
+  `ProtectSystem`, `ProtectHome`, `PrivateTmp`, `PrivateNetwork`,
+  `RestrictNamespaces`, `MemoryDenyWriteExecute`, `RestrictAddressFamilies`
+  and `SystemCallFilter` must not be added there. The stock NixOS score
+  (`systemd-analyze security greetd` near 10) is the expected result, not a
+  regression; harden the greeter compositor or the session units instead.
 - `02-mangosettings.nix` `[menu]`. Focus, tiling, window rules and overview.
   Default and per-workspace layouts live on the Workspaces page.
 - `03-mangomaster.nix` `[menu]`. Master and stack layout.
@@ -129,6 +147,10 @@ current working set for review.
   on the Power page, and weather is a KAlarm command alarm that displays a
   weather command's output.
 - `08-clipboard.nix` `[menu]`. Clipboard history settings.
+- `10-sounds.nix` `[menu]`. System sound effects for login, notifications,
+  volume, charger events and media, plus the advanced audio and media controls.
+  The shell plays its bundled cues unless "Use system sound theme" is on; the
+  Audio page installs the freedesktop theme that switch selects.
 - `11-screensaver.nix` `[menu]`. Configurable ASCII screensaver command and idle timeout.
 
 ### 04-gui
@@ -144,6 +166,9 @@ current working set for review.
 - `05-controlcenter.nix` `[menu]`. Control center widgets and layout.
 - `06-menu.nix` `[menu]`. Nix managed application menu. The menu tree is a
   literal attribute set that the `menu` widget reads and writes as a whole.
+- `07-dot.nix` `[menu]`. The standalone dot and free-floating island surfaces,
+  their size, colours, screens, shortcut routing and notification behaviour.
+  Both are off by default and never change the selected bar.
 - Menu conventions and the patch extension point:
   - A toggle is a Run Command row with `checked` set, as Stay Awake and Night
     Mode already do. There is no toggle action type.
@@ -163,7 +188,9 @@ current working set for review.
 
 - `01-applist.nix` `[menu]`. Applications installed system-wide (D8),
   including dux-files (`dfiles`) as the default file browser, which replaces
-  Nautilus.
+  Nautilus. `dfiles` is authoritative for `inode/directory`, the trash scheme
+  and the remote schemes while it is selected. yazi remains the terminal TUI on
+  the Terminal page and is not a directory handler.
 - `07-screenshot.nix` `[menu]`. satty, OCR, the capture wrappers and the
   screenshot keybinds. The binds live in the always-active common mode.
 - `02-multimedia.nix` `[menu]`. Viewers (media player, image viewer) and tools
@@ -173,8 +200,12 @@ current working set for review.
 - `04-vesktop.nix` `[menu]`. Discord client.
 - `05-steam.nix` `[menu]`. Steam, Proton GE, DW-Proton with DXVK-Sarek,
   Xbox controller support and gaming (D12).
-- `06-kdeconnect.nix` `[menu]`. Phone notifications, file transfer and
-  remote input.
+- `06-kdeconnect.nix` `[menu]`, hidden. Phone notifications, file transfer
+  and remote input. The page has no switch of its own: Valent and
+  `programs.kdeconnect` follow `desktop.ojuny.dux.plugins.dankKDEConnect.enable`
+  on the DMS plugins page. When it is on, the DMS plugin opens TCP/UDP
+  1714-1764 to local addresses only (RFC 1918, link-local and IPv6 ULA); it is
+  the one default open port.
 - `08-appimage.nix` `[menu]`. App format compatibility. The AppImage half is
   the AppImage runtime and double-click handler: it enables `programs.appimage`,
   registers the binfmt handlers, installs a hidden `ojuny-appimage.desktop`
@@ -215,7 +246,9 @@ current working set for review.
   rEFInd helper switch and the recovery UKI switch. The recovery UKI is on by
   default. The multiboot helper is off by default and the installer enables it
   when another internal system is found.
-- `_00-ssh-test.nix` `[no menu]`. Temporary SSH test module.
+- `_00-ssh-test.nix` `[no menu]`. Temporary SSH test module. It is not
+  generated for any account, it is an explicit host edit used only for the
+  test rig, and it is removed before release.
 - `01-configuration.nix` `[menu]`. Kernel selection, hostname, time zone,
   locale, console keymap, the patches switch, the systemd-boot generation
   limit, and the package source controls. Kernel choices are LTS, latest, Zen,
@@ -281,6 +314,16 @@ current working set for review.
   formatters), plus `patch-nixvim`, `patch-emacs`, `patch-helix` and
   `patch-zed`. Helix and Zed theme through Stylix and each own a
   `defaultEditor` switch that is off by default.
+- Patch defaults do not grant security groups. The Docker patch installs and
+  enables the daemon but does not add normal users to `docker`, because that
+  group is root-equivalent; use `sudo docker ...` or enable rootless mode.
+  The Virtualization patch enables libvirtd but does not add users to
+  `libvirtd`; polkit is the intended path, so `virsh -c qemu:///system` and
+  virt-manager work from a local session with a polkit agent. Adding a user to
+  either group is a manual host decision.
+- The Flatpak patch installs Flatpak and Bazaar and declares no remote. Bazaar
+  prompts for Flathub on first launch; `flatpak remote-add` stays a user
+  action.
 
 ## Coverage ledger
 

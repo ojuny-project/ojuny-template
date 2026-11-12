@@ -13,6 +13,11 @@ sbctl_cmd() {
     fi
 }
 
+efi_is_signed() {
+    sbctl_cmd --json verify "$1" 2>/dev/null |
+        jq -e 'type == "array" and length == 1 and .[0].is_signed == 1' >/dev/null
+}
+
 install -d "$recovery_dir" "$(dirname "$manifest")"
 
 toplevel="$(readlink -f /run/current-system)"
@@ -69,22 +74,17 @@ if [ -d "$pki_bundle/keys" ]; then
 
     key_marker="$recovery_dir/.ojuny-recovery-key"
     key_id="$(sha256sum "$pki_bundle/keys/db/db.pem" 2>/dev/null | cut -d" " -f1 || true)"
-    if sbctl_cmd verify "$recovery_file" >/dev/null 2>&1
-    then
-        if [ -z "$key_id" ] || { [ -f "$key_marker" ] && [ "$(cat "$key_marker")" = "$key_id" ]; }; then
-            signed="signed"
-        fi
+    if ! efi_is_signed "$recovery_file"; then
+        sbctl_cmd sign -s "$recovery_file" || true
     fi
-    if [ "$signed" != "signed" ]; then
-        if sbctl_cmd sign -s "$recovery_file"; then
-            if [ -n "$key_id" ]; then
-                printf '%s\n' "$key_id" >"$key_marker"
-            fi
-            signed="signed"
-        else
-            echo "ojuny-recovery: failed to sign $recovery_file" >&2
-            signed="unsigned"
+    if efi_is_signed "$recovery_file"; then
+        signed="signed"
+        if [ -n "$key_id" ]; then
+            printf '%s\n' "$key_id" >"$key_marker"
         fi
+    else
+        echo "ojuny-recovery: $recovery_file is not signed" >&2
+        signed="unsigned"
     fi
 fi
 

@@ -37,8 +37,9 @@ the flake.
    - optional SSH authorized keys (paste, repeatable)
    - `home.stateVersion` only; `system.stateVersion` is written once and never
      exposed or prompted (D15a)
-   - the temporary `system-ssh-test` module is imported only when the
-     username is `den`
+   - the temporary `system-ssh-test` module is never generated and is not
+     imported for any username; SSH access for the test rig is an explicit
+     host edit, and the module is removed before release
 3. Host wiring - the single host imports the pages it uses plus the generated
    files, and `flake.nix` registers `nixosConfigurations.<hostname>`. All
    system-specific settings live in the system directory; making a second
@@ -63,6 +64,13 @@ the flake.
 - Refuse to embed a plaintext password; store only the hash.
 - Keep every generated value out of the tracked defaults so a fresh fork
   contains no personal data.
+- The generated files are tracked in the fork, never in the upstream template.
+  `modules/facter.json` stays tracked: a git flake only exposes tracked files,
+  and the hardware report must remain visible to the flake.
+- The upstream template is not a fork. If the clone keeps the upstream
+  `origin`, the user's commits stay local by design: `git push` is rejected by
+  the upstream repository, while `git pull` still syncs. This is a supported
+  workflow for testing. Point `origin` at a fork to push.
 
 ## 5. Requirements
 

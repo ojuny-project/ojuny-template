@@ -17,7 +17,7 @@
       config = {
         # Fonts
         # @option widget = "font"; label = "Monospace font"; packageOption = "stylix.fonts.monospace.package"; monospace = true; group = "Fonts"; groupOrder = 20; order = 10; applyCommand = "gsettings set org.gnome.desktop.interface monospace-font-name %%val%%";
-        stylix.fonts.monospace.name = "CaskaydiaCove Nerd Font";
+        stylix.fonts.monospace.name = "CaskaydiaCove Nerd Font Mono";
 
         # @option widget = "package"; label = "Monospace package"; group = "Fonts"; hidden = true; groupOrder = 20; order = 20;
         stylix.fonts.monospace.package = pkgs.nerd-fonts.caskaydia-cove;

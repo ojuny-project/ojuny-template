@@ -23,6 +23,32 @@ fi
 
 efi="$(efibootmgr -v 2>/dev/null || true)"
 
+entry_exists() {
+    efi_has_entry "$efi" "$1"
+}
+
+efi_has_entry() {
+    local text="$1" number="$2"
+    printf '%s\n' "$text" | awk -v number="$number" '
+        /^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]/ {
+            if (substr($1, 5, 4) == number) {
+                found = 1
+                exit
+            }
+        }
+        END { exit(found ? 0 : 1) }
+    '
+}
+
+dropped=()
+
+warn_dropped() {
+    [ "${#dropped[@]}" -gt 0 ] || return 0
+    local joined
+    joined="$(printf '%s\n' "${dropped[@]}" | sort -u | paste -sd, -)"
+    echo "ojuny-bootorder: dropping missing entries: $joined" >&2
+}
+
 find_by_path() {
     local pattern="$1"
     printf '%s\n' "$efi" | awk -v uuid="$partuuid" -v pattern="$pattern" '
@@ -96,16 +122,31 @@ has_number() {
 
 apply_order() {
     local new="$1"
+    local output
     echo "ojuny-bootorder: setting BootOrder to $new"
-    if ! efibootmgr -o "$new"; then
-        echo "ojuny-bootorder: failed to set BootOrder" >&2
+    if ! output="$(efibootmgr -o "$new" 2>&1)"; then
+        echo "ojuny-bootorder: failed to set BootOrder: $output" >&2
+        return 1
     fi
 }
 
 order="$(efibootmgr 2>/dev/null | sed -n 's/^BootOrder: //p' | head -n1 || true)"
 [ -n "$order" ] || exit 0
-IFS=',' read -r -a current_order <<<"$order"
+IFS=',' read -r -a raw_order <<<"$order"
+current_order=()
+for number in "${raw_order[@]}"; do
+    [ -n "$number" ] || continue
+    if entry_exists "$number"; then
+        current_order+=("$number")
+    else
+        dropped+=("$number")
+    fi
+done
+[ "${#current_order[@]}" -gt 0 ] || exit 0
 current_numbers="$(IFS=,; printf '%s' "${current_order[*]}")"
+if [ "$mode" != "install" ]; then
+    warn_dropped
+fi
 
 if [ "$mode" = "install" ]; then
     previous_file="${OJUNY_BOOTORDER_PREVIOUS:-}"
@@ -114,9 +155,19 @@ if [ "$mode" = "install" ]; then
     previous_efi="$(cat "$previous_file")"
     previous_order="$(printf '%s\n' "$previous_efi" | sed -n 's/^BootOrder: //p' | head -n1)"
     [ -n "$previous_order" ] || exit 0
-    IFS=',' read -r -a previous <<<"$previous_order"
+    IFS=',' read -r -a raw_previous <<<"$previous_order"
+    previous=()
+    for number in "${raw_previous[@]}"; do
+        [ -n "$number" ] || continue
+        if entry_exists "$number"; then
+            previous+=("$number")
+        else
+            dropped+=("$number")
+        fi
+    done
 
     previous_numbers="$(IFS=,; printf '%s' "${previous[*]}")"
+    warn_dropped
 
     restored=()
     group=("$ojuny_num")
@@ -160,7 +211,7 @@ if [ "$mode" = "install" ]; then
     echo "ojuny-bootorder: current=$order"
     echo "ojuny-bootorder: target=$new"
     if [ "$new" != "$order" ]; then
-        apply_order "$new"
+        apply_order "$new" || true
     fi
     exit 0
 fi
@@ -200,7 +251,7 @@ if [ "$missing" -eq 1 ]; then
     echo "ojuny-bootorder: Ojuny entries missing from BootOrder"
     echo "ojuny-bootorder: target=$new"
     if [ "$new" != "$order" ]; then
-        apply_order "$new"
+        apply_order "$new" || true
     fi
     exit 0
 fi
@@ -232,5 +283,5 @@ new="$(IFS=,; printf '%s' "${new_order[*]}")"
 if [ "$new" != "$order" ]; then
     echo "ojuny-bootorder: current=$order"
     echo "ojuny-bootorder: target=$new"
-    apply_order "$new"
+    apply_order "$new" || true
 fi

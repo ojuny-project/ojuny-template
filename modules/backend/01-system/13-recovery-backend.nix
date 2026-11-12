@@ -40,6 +40,7 @@
           gawk
           gnugrep
           gnused
+          sbctl
         ];
         text = builtins.readFile ./recovery-cleanup.sh;
       };
@@ -87,6 +88,7 @@
             environment = {
               OJUNY_RECOVERY_DIR = recoveryDir;
               OJUNY_MANIFEST = manifest;
+              OJUNY_SBCTL_CONF = "/var/lib/ojuny/sbctl.conf";
             };
             serviceConfig = {
               Type = "oneshot";

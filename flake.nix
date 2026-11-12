@@ -539,9 +539,10 @@
         };
 
       flake = {
-        hydraJobs = self.checks // {
-          fixture-system-build = self.nixosConfigurations.fixture.config.system.build.toplevel;
-        };
+        # Only the source checks live here. A system build in hydraJobs would
+        # force import-from-derivation during `nix flake check`; the fixture
+        # build runs in scripts/check-baseline.sh instead.
+        hydraJobs = self.checks;
 
         nixosModules.default = inputs.ojuny-desktop.nixosModules.default;
         homeManagerModules.default = inputs.ojuny-desktop.homeManagerModules.default;
