@@ -1,0 +1,17 @@
+# Tests
+# Local test record for this repository.
+# Run against commit 280017b on 2026-11-13.
+# Device: ojuny test laptop, NixOS 26.11.20261111.d4f25a3, kernel 6.18.63.
+# Result: all listed tests passed.
+
+- PASS WEB-01: the managed Firefox profile and theme are applied. Method: inspect the home-manager generation for `.config/mozilla`, read `profiles.ini`, `default/user.js`, and `default/extensions`, then launch Firefox and inspect the chrome. Evidence: RUN-03, `/tmp/opencode/ff5.png`.
+- PASS RECOVERY-01: the recovery UKI tracks the running generation. Method: run `nixos-rebuild switch`, then compare `ojuny recovery status` generation and `Last build` with `/run/current-system`; repeat after the clean rebuild. Evidence: RUN-03, RUN-04.
+- PASS BOOT-04 / BOOT-11: stale boot payloads are removed. Method: count `/boot/EFI/Linux`, `/boot/EFI/nixos`, and `/boot/loader/entries`, check the ESP and sbctl database for rEFInd, and read the cleanup unit result. Evidence: RUN-01.
+- PASS BOOT-10: the firmware boot order is filtered and current. Method: `bootctl status` and `efibootmgr` output after a rebuild. Evidence: RUN-01.
+- PASS UX-03: fonts and icons resolve. Method: `fc-match monospace`, `fc-match sans-serif`, and the configured Papirus-Dark icon theme. Evidence: RUN-02.
+- PASS APP-03: dfiles is the directory handler. Method: `xdg-mime query default inode/directory`. Evidence: RUN-02.
+- PASS SEC-10: kernel hardening matches NixOS defaults. Method: read `kptr_restrict`, `dmesg_restrict`, `unprivileged_bpf_disabled`, `ptrace_scope`, and `rp_filter`. Evidence: RUN-02.
+- PASS SEC-12: SSH exposure is limited to the test module. Method: inspect the staged flake modules and confirm only `00-ssh-test.nix` opens SSH. Evidence: RUN-01.
+- PASS HW-02: backlight control works. Method: write 30000 to the `amdgpu_bl1` brightness and restore 65535 as root. Evidence: RUN-02.
+- PASS HW-05: Bluetooth is off by default. Method: `rfkill list bluetooth` shows a soft block with the service present. Evidence: RUN-01.
+- PASS splash page wiring: the Login options are exposed for the splash. Method: `ojuny settings "Window management"` opens the page and the splash values build; the service reads `showOnRebuild`, `fadeIn`, `fadeOut`, and `tips`. Evidence: RUN-04.
