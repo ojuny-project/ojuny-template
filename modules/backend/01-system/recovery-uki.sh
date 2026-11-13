@@ -20,8 +20,8 @@ efi_is_signed() {
 
 install -d "$recovery_dir" "$(dirname "$manifest")"
 
-toplevel="$(readlink -f /run/current-system)"
-boot_json="/run/current-system/boot.json"
+toplevel="${OJUNY_TOPLEVEL:-$(readlink -f /run/current-system)}"
+boot_json="$toplevel/boot.json"
 if [ ! -f "$boot_json" ]; then
     boot_json="/nix/var/nix/profiles/system/boot.json"
 fi

@@ -82,6 +82,7 @@
             deps = [ "specialfs" ];
             text = ''
               if [ -d /sys/firmware/efi ]; then
+                OJUNY_TOPLEVEL="$(readlink -f /nix/var/nix/profiles/system)" \
                 OJUNY_BOOT_MOUNT=${lib.escapeShellArg bootMountPoint} \
                 OJUNY_RECOVERY_DIR=${lib.escapeShellArg recoveryDir} \
                 OJUNY_RECOVERY_FILE=${lib.escapeShellArg recoveryFile} \
