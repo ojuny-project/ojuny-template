@@ -77,6 +77,21 @@
               ExecStart = "${recovery}/bin/ojuny-recovery";
             };
           };
+
+          system.activationScripts.ojuny-recovery = {
+            deps = [ "specialfs" ];
+            text = ''
+              if [ -d /sys/firmware/efi ]; then
+                OJUNY_BOOT_MOUNT=${lib.escapeShellArg bootMountPoint} \
+                OJUNY_RECOVERY_DIR=${lib.escapeShellArg recoveryDir} \
+                OJUNY_RECOVERY_FILE=${lib.escapeShellArg recoveryFile} \
+                OJUNY_MANIFEST=${lib.escapeShellArg manifest} \
+                OJUNY_PKI_BUNDLE=${lib.escapeShellArg pkiBundle} \
+                OJUNY_UKIFY=${lib.escapeShellArg "${ukify}/bin/ukify"} \
+                ${recovery}/bin/ojuny-recovery || true
+              fi
+            '';
+          };
         })
         (lib.mkIf (!cfg.enable) {
           systemd.services.ojuny-recovery-cleanup = {

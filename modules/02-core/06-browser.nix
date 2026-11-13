@@ -220,6 +220,9 @@
     {
       config = lib.mkIf (osConfig.programs.firefox.enable or false) {
 
+        programs.firefox.enable = true;
+        programs.firefox.policies = osConfig.programs.firefox.policies or { };
+
         # @option widget = "text"; label = "Profile name"; group = "Firefox"; order = 10; description = "Name of the main profile on disk."; visibleWhen.path = "ojuny.browser.selected"; visibleWhen.equals = "firefox";
         programs.firefox.profiles.default.name = "default";
 
