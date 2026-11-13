@@ -113,7 +113,27 @@
         ];
 
         # @option widget = "raw"; label = "Layer rules"; group = "Rules"; rows = 4; advanced = true; description = "mango layer_rule tables.";
-        desktop.ojuny.mango.rules.layer_rule = [ ];
+        desktop.ojuny.mango.rules.layer_rule = [
+          {
+            layer_name = "ojuny-login-splash";
+            no_animation = 1;
+            no_blur = 1;
+            no_shadow = 1;
+          }
+        ];
+
+        # Login
+        # @option widget = "switch"; label = "Show login splash on rebuild"; group = "Login"; groupOrder = 95; order = 10; description = "Start the login splash after a rebuild. Off shows it only at boot/login.";
+        desktop.ojuny.splash.showOnRebuild = false;
+
+        # @option widget = "slider"; label = "Splash asset fade-in"; group = "Login"; groupOrder = 95; order = 20; min = 0.0; max = 2.0; step = 0.1; unit = "s"; description = "Fade the logo and text in. 0 disables it.";
+        desktop.ojuny.splash.fadeIn = 0.3;
+
+        # @option widget = "slider"; label = "Splash fade-out"; group = "Login"; groupOrder = 95; order = 30; min = 0.0; max = 2.0; step = 0.1; unit = "s"; description = "Fade the splash out before the timer exit. 0 disables it.";
+        desktop.ojuny.splash.fadeOut = 0.3;
+
+        # @option widget = "list"; label = "Login splash tips"; group = "Login"; groupOrder = 95; order = 40; itemLabel = "Tip"; addLabel = "Add tip"; description = "One tip is chosen at random under the welcome text. Empty hides the subtext.";
+        desktop.ojuny.splash.tips = [ ];
 
         # System
         # @option widget = "switch"; label = "Allow shortcut inhibition"; group = "System"; groupOrder = 90; description = "Let clients inhibit keyboard shortcuts."; applyCommand = "mmsg dispatch setoption,allow_shortcuts_inhibit,$(case %%val%% in true) echo 1;; *) echo 0;; esac)";
