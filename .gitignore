@@ -1,3 +1,6 @@
+# Ignore the devshell-generated git hook configuration
+.pre-commit-config.yaml
+
 # Ignore build outputs from performing a nix-build or `nix build` command
 result
 result-*
