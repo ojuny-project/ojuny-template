@@ -11,7 +11,7 @@
           builtins.filter (rule: (rule.app_id or "") == appId) config.desktop.ojuny.mango.rules.window_rule
         );
       autoRotateFixture = fixture.extendModules {
-        modules = [ { services.nix-settings-gui.monitors."eDP-1".autoRotation = lib.mkForce "automatic"; } ];
+        modules = [ { services.nix-settings-gui.monitors."eDP-1".autoRotation = lib.mkForce true; } ];
       };
       payload = pkgs.writeText "desktop-interaction-eval.json" (
         builtins.toJSON {
@@ -43,10 +43,6 @@
               modules = [ { ojuny.steam.theme = lib.mkForce false; } ];
             }).config.programs.steam.package.pname
             or "";
-          automountExecStart =
-            fixture.config.systemd.user.services.ojuny-automount-present.serviceConfig.ExecStart;
-          automountWantedBy =
-            fixture.config.systemd.user.services.ojuny-automount-present.wantedBy;
           autoRotateExec =
             autoRotateFixture.config.systemd.user.services.ojuny-auto-rotate.serviceConfig.ExecStart;
           autoRotateSensor = autoRotateFixture.config.hardware.sensor.iio.enable;
@@ -137,14 +133,16 @@
             jq -e '.steamTheme == true and .steamThemeName == "Adwaita"' ${payload}
             jq -e '.steamPackage == "steam-with-millennium"' ${payload}
             jq -e '.steamOffPackage == "steam"' ${payload}
-            jq -e '.automountExecStart | endswith("ojuny-automount-present")' ${payload}
-            jq -e '.automountWantedBy | index("mango-session.target") != null' ${payload}
             jq -e '.autoRotateExec | endswith("ojuny-auto-rotate eDP-1")' ${payload}
             jq -e '.autoRotateSensor == true' ${payload}
             jq -e '.autoRotateDisabled == true' ${payload}
-            grep -q 'toggle_monitor' ${source}/scripts/ojuny-display-toggle.sh
-            if grep -q 'sleep_toggle_monitor' ${source}/scripts/ojuny-display-toggle.sh; then
-              echo "the display toggle must not use sleep_toggle_monitor" >&2
+            grep -q 'sleep_toggle_monitor' ${source}/scripts/ojuny-display-toggle.sh
+            if grep -q 'mmsg dispatch "toggle_monitor' ${source}/scripts/ojuny-display-toggle.sh; then
+              echo "the display toggle must not use toggle_monitor" >&2
+              exit 1
+            fi
+            if grep -q 'reload_config' ${source}/scripts/ojuny-display-toggle.sh; then
+              echo "the display toggle must not reload the layout" >&2
               exit 1
             fi
             touch $out

@@ -57,6 +57,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    wvkbd = {
+      url = "github:ojuny-project/wvkbd";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     ojuny-welcome = {
       url = "github:ojuny-project/ojuny-welcome";
       inputs.nixpkgs.follows = "nixpkgs";

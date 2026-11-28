@@ -29,6 +29,9 @@ case "\$1 \$2" in
   "get all-monitors")
     printf '%s\n' "\$MMSG_MONITORS"
     ;;
+  "get cursorpos")
+    printf '%s\n' "\${MMSG_CURSOR:-}"
+    ;;
   "dispatch "*) ;;
   *)
     printf 'unexpected mmsg call: %s\n' "\$*" >&2
@@ -68,18 +71,12 @@ case "\$*" in
 esac
 STUB
 
-cat >"$work/bin/wlr-randr" <<STUB
-#!${BASH:-/usr/bin/env bash}
-set -euo pipefail
-printf '%s\n' "\$*" >>"\$WLR_LOG"
-STUB
-chmod +x "$work/bin/mmsg" "$work/bin/ydotool" "$work/bin/udisksctl" "$work/bin/lsblk" "$work/bin/findmnt" "$work/bin/wlr-randr"
+chmod +x "$work/bin/mmsg" "$work/bin/ydotool" "$work/bin/udisksctl" "$work/bin/lsblk" "$work/bin/findmnt"
 export PATH="$work/bin:$PATH"
 export XDG_RUNTIME_DIR="$work/run"
 export MMSG_LOG="$work/mmsg.log"
 export YDOTOOL_LOG="$work/ydotool.log"
 export UDISKS_LOG="$work/udisks.log"
-export WLR_LOG="$work/wlr.log"
 
 focus_tiling='{"is_fullscreen":false,"is_floating":false}'
 focus_floating='{"is_fullscreen":false,"is_floating":true}'
@@ -127,113 +124,41 @@ if [ -s "$YDOTOOL_LOG" ]; then
   fail "a middle click with no focused window was re-emitted"
 fi
 
-export MMSG_MONITORS='{"monitors":[{"name":"eDP-1","active":true,"x":0,"y":0},{"name":"HDMI-A-1","active":false,"x":1920,"y":0}]}'
-rm -f "$XDG_RUNTIME_DIR/ojuny-display-toggle/off.json"
+export MMSG_MONITORS='{"monitors":[{"name":"eDP-1","active":true},{"name":"HDMI-A-1","active":false}]}'
+export MMSG_FOCUS=''
+export MMSG_CURSOR=''
 : >"$MMSG_LOG"
 bash "$here"/ojuny-display-toggle.sh focused || fail "the focused display toggle failed"
-grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG" || fail "the focused monitor was not toggled"
-if grep -qx 'dispatch toggle_monitor,HDMI-A-1' "$MMSG_LOG"; then
-  fail "the focused toggle also changed another monitor"
+grep -qx 'dispatch sleep_toggle_monitor,eDP-1' "$MMSG_LOG" ||
+  fail "the focused monitor was not slept"
+if grep -q 'dispatch toggle_monitor' "$MMSG_LOG"; then
+  fail "the display toggle used toggle_monitor"
 fi
-grep -qx 'dispatch reload_config' "$MMSG_LOG" ||
-  fail "turning a display off did not reload the layout"
-if grep -q 'sleep_toggle_monitor' "$MMSG_LOG"; then
-  fail "the display toggle used sleep_toggle_monitor"
+if grep -qx 'dispatch reload_config' "$MMSG_LOG"; then
+  fail "the display toggle reloaded the layout"
 fi
-[ "$(jq -r 'has("eDP-1")' "$XDG_RUNTIME_DIR/ojuny-display-toggle/off.json")" = "true" ] ||
-  fail "the turned-off monitor was not recorded"
+if grep -q 'wlr-randr' "$MMSG_LOG"; then
+  fail "the display toggle tried to restore positions"
+fi
 
-export MMSG_MONITORS='{"monitors":[{"name":"HDMI-A-1","active":true,"x":1920,"y":0}]}'
+export MMSG_CURSOR='{"monitor":"HDMI-A-1"}'
 : >"$MMSG_LOG"
-bash "$here"/ojuny-display-toggle.sh all || fail "the all-displays re-enable failed"
-grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG" || fail "all-displays did not re-enable the off monitor"
-if grep -qx 'dispatch toggle_monitor,HDMI-A-1' "$MMSG_LOG"; then
-  fail "all-displays toggled an active monitor while re-enabling"
-fi
-grep -qx 'dispatch reload_config' "$MMSG_LOG" ||
-  fail "re-enabling displays did not reload the layout"
-grep -q -- '--output eDP-1 --pos 0,0' "$WLR_LOG" ||
-  fail "the monitor position was not restored"
-[ ! -f "$XDG_RUNTIME_DIR/ojuny-display-toggle/off.json" ] ||
-  fail "the off state was not cleared"
+bash "$here"/ojuny-display-toggle.sh focused || fail "the cursor display toggle failed"
+grep -qx 'dispatch sleep_toggle_monitor,HDMI-A-1' "$MMSG_LOG" ||
+  fail "the monitor under the cursor was not slept"
 
-export MMSG_MONITORS='{"monitors":[{"name":"eDP-1","active":true,"x":0,"y":0},{"name":"HDMI-A-1","active":true,"x":1920,"y":0}]}'
-export MMSG_FOCUS='{"monitor":"eDP-1"}'
-: >"$MMSG_LOG"
-bash "$here"/ojuny-display-toggle.sh focused || fail "the first focused display toggle failed"
-grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG" ||
-  fail "the first focused monitor was not toggled"
-
-export MMSG_MONITORS='{"monitors":[{"name":"HDMI-A-1","active":true,"x":1920,"y":0}]}'
-export MMSG_FOCUS='{"monitor":"HDMI-A-1"}'
-: >"$MMSG_LOG"
-bash "$here"/ojuny-display-toggle.sh focused || fail "the second focused display toggle failed"
-grep -qx 'dispatch toggle_monitor,HDMI-A-1' "$MMSG_LOG" ||
-  fail "the second focused monitor was not toggled"
-if grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG"; then
-  fail "the second focused press re-enabled the first monitor"
-fi
-grep -qx 'dispatch reload_config' "$MMSG_LOG" ||
-  fail "the second focused toggle did not reload the layout"
-
-export MMSG_MONITORS='{"monitors":[]}'
+export MMSG_MONITORS='{"monitors":[{"name":"eDP-1","active":true},{"name":"HDMI-A-1","active":true}]}'
 export MMSG_FOCUS=''
-: >"$MMSG_LOG"
-bash "$here"/ojuny-display-toggle.sh all || fail "the all-displays re-enable failed"
-grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG" || fail "all-displays skipped eDP-1 when re-enabling"
-grep -qx 'dispatch toggle_monitor,HDMI-A-1' "$MMSG_LOG" || fail "all-displays skipped HDMI-A-1 when re-enabling"
-grep -qx 'dispatch reload_config' "$MMSG_LOG" ||
-  fail "re-enabling displays did not reload the layout"
-
-rm -f "$XDG_RUNTIME_DIR/ojuny-display-toggle/off.json"
-export MMSG_MONITORS='{"monitors":[{"name":"eDP-1","active":true,"x":0,"y":0},{"name":"HDMI-A-1","active":true,"x":1920,"y":0}]}'
+export MMSG_CURSOR=''
 : >"$MMSG_LOG"
 bash "$here"/ojuny-display-toggle.sh all || fail "the all-displays toggle failed"
-grep -qx 'dispatch toggle_monitor,eDP-1' "$MMSG_LOG" || fail "all-displays skipped eDP-1"
-grep -qx 'dispatch toggle_monitor,HDMI-A-1' "$MMSG_LOG" || fail "all-displays skipped HDMI-A-1"
-grep -qx 'dispatch reload_config' "$MMSG_LOG" ||
-  fail "turning displays off did not reload the layout"
-[ -f "$XDG_RUNTIME_DIR/ojuny-display-toggle/off.json" ] ||
-  fail "the turned-off positions were not saved"
-
-uid="$(id -u)"
-export LSBLK_JSON="{\"blockdevices\":[
-  {\"name\":\"sda\",\"path\":\"/dev/sda\",\"type\":\"disk\",\"tran\":\"sata\",\"rm\":false,\"fstype\":null,\"mountpoints\":[null],\"options\":null},
-  {\"name\":\"sdb1\",\"path\":\"/dev/sdb1\",\"type\":\"part\",\"tran\":\"usb\",\"rm\":true,\"fstype\":\"exfat\",\"mountpoints\":[null],\"options\":null},
-  {\"name\":\"sdc1\",\"path\":\"/dev/sdc1\",\"type\":\"part\",\"tran\":null,\"rm\":true,\"fstype\":\"vfat\",\"mountpoints\":[null],\"options\":null},
-  {\"name\":\"sdd1\",\"path\":\"/dev/sdd1\",\"type\":\"part\",\"tran\":\"usb\",\"rm\":true,\"fstype\":\"ext4\",\"mountpoints\":[\"/run/media/user/sdd1\"],\"options\":\"rw,uid=${uid}\"},
-  {\"name\":\"sdf1\",\"path\":\"/dev/sdf1\",\"type\":\"part\",\"tran\":\"usb\",\"rm\":true,\"fstype\":\"exfat\",\"mountpoints\":[\"/run/media/greeter/sdf1\"],\"options\":\"rw,uid=9999\"},
-  {\"name\":\"sdg\",\"path\":\"/dev/sdg\",\"type\":\"disk\",\"tran\":\"usb\",\"rm\":true,\"fstype\":null,\"mountpoints\":[null],\"options\":null,\"children\":[
-    {\"name\":\"sdg1\",\"path\":\"/dev/sdg1\",\"type\":\"part\",\"tran\":null,\"rm\":false,\"fstype\":\"exfat\",\"mountpoints\":[null],\"options\":null}
-  ]},
-  {\"name\":\"sde1\",\"path\":\"/dev/sde1\",\"type\":\"part\",\"tran\":\"usb\",\"rm\":true,\"fstype\":null,\"mountpoints\":[null],\"options\":null}
-]}"
-: >"$UDISKS_LOG"
-bash "$here"/ojuny-automount-present.sh || fail "the present-device automount failed"
-grep -qx 'mount -b /dev/sdb1 --no-user-interaction' "$UDISKS_LOG" ||
-  fail "the USB partition was not mounted"
-grep -qx 'mount -b /dev/sdc1 --no-user-interaction' "$UDISKS_LOG" ||
-  fail "the removable partition was not mounted"
-if grep -qx 'mount -b /dev/sda --no-user-interaction' "$UDISKS_LOG"; then
-  fail "an internal disk was mounted"
+grep -qx 'dispatch sleep_toggle_monitor,eDP-1' "$MMSG_LOG" ||
+  fail "all-displays skipped eDP-1"
+grep -qx 'dispatch sleep_toggle_monitor,HDMI-A-1' "$MMSG_LOG" ||
+  fail "all-displays skipped HDMI-A-1"
+if grep -qx 'dispatch reload_config' "$MMSG_LOG"; then
+  fail "the all-displays toggle reloaded the layout"
 fi
-if grep -qx 'mount -b /dev/sdd1 --no-user-interaction' "$UDISKS_LOG"; then
-  fail "an already mounted partition was mounted again"
-fi
-if grep -qx 'mount -b /dev/sde1 --no-user-interaction' "$UDISKS_LOG"; then
-  fail "a partition without a filesystem was mounted"
-fi
-grep -qx 'unmount -b /dev/sdf1 --no-user-interaction' "$UDISKS_LOG" ||
-  fail "a partition mounted for another uid was not unmounted"
-grep -qx 'mount -b /dev/sdf1 --no-user-interaction' "$UDISKS_LOG" ||
-  fail "a partition mounted for another uid was not remounted"
-grep -qx 'mount -b /dev/sdg1 --no-user-interaction' "$UDISKS_LOG" ||
-  fail "a nested USB partition was not mounted"
-
-export LSBLK_JSON='{"blockdevices":[]}'
-: >"$UDISKS_LOG"
-bash "$here"/ojuny-automount-present.sh || fail "the empty automount pass failed"
-[ ! -s "$UDISKS_LOG" ] || fail "the empty automount pass mounted something"
 
 home="$work/home"
 theme_source="$work/theme"
@@ -268,4 +193,4 @@ HOME="$home" bash "$here"/ojuny-steam-theme.sh "$theme_source" Adwaita ||
 jq -e '.themes.activeTheme == "Other"' "$home/.config/millennium/config.json" ||
   fail "the Steam theme install overwrote an existing choice"
 
-printf 'ok: middle click, display toggle, automount and Steam theme scripts\n'
+printf 'ok: middle click, display toggle and Steam theme scripts\n'

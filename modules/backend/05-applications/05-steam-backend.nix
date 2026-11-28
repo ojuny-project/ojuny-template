@@ -90,7 +90,7 @@
 
       config = {
         programs.steam.package =
-          lib.mkIf (config.programs.steam.enable && config.ojuny.steam.theme) (
+          lib.mkIf config.ojuny.steam.theme (
             let
               stylixColor = name:
                 let value = config.lib.stylix.colors.${name};

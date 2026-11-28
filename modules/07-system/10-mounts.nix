@@ -12,18 +12,6 @@
   flake.modules.nixos.system-mounts =
     { config, lib, pkgs, ... }:
 
-    let
-      automountPresent = pkgs.writeShellApplication {
-        name = "ojuny-automount-present";
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.jq
-          pkgs.udisks2
-          pkgs.util-linux
-        ];
-        text = builtins.readFile ../../scripts/ojuny-automount-present.sh;
-      };
-    in
     {
       options.ojuny.mounts.passwordless = lib.mkEnableOption "passwordless mounting of removable media";
 
@@ -37,6 +25,8 @@
 
         # @option widget = "switch"; label = "Mount removable media automatically"; group = "External media"; groupOrder = 20; description = "Runs devmon, which mounts removable media when it is inserted.";
         services.devmon.enable = true;
+
+        systemd.user.services.devmon.unitConfig.ConditionUser = "!greeter";
 
         # @option widget = "switch"; label = "Disk service"; group = "External media"; groupOrder = 20; description = "udisks2 handles mounting, unmounting and filesystem operations for removable media.";
         services.udisks2.enable = true;
@@ -70,18 +60,6 @@
         '';
 
         boot.supportedFilesystems = [ "exfat" "ntfs" "f2fs" ];
-
-        systemd.user.services.ojuny-automount-present = {
-          description = "Mount removable media that was present at login";
-          wantedBy = [ "mango-session.target" ];
-          after = [ "mango-session.target" ];
-          partOf = [ "mango-session.target" ];
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${automountPresent}/bin/ojuny-automount-present";
-            RemainAfterExit = true;
-          };
-        };
 
         environment.systemPackages = with pkgs; [
           btrfs-progs

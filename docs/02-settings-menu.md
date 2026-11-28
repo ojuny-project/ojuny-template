@@ -335,8 +335,7 @@ current working set for review.
 - `07-plymouth.nix` `[menu]`. Stylix-coloured Plymouth boot splash with the Ojuny logo.
 - `10-mounts.nix` `[menu]`. Additional internal mounts, external media and
   filesystem maintenance. devmon, udisks2 and gvfs automount removable media,
-  and mounting is passwordless for active local sessions. A session-start pass
-  also mounts removable devices that were already present at boot. Two switches make a
+  and mounting is passwordless for active local sessions. Two switches make a
   USB copy safe to unplug: synchronous writes and the drive write-cache
   disable. See [13-external-media.md](13-external-media.md) for the guarantee
   and its limits.

@@ -25,6 +25,15 @@ if command -v wl-paste >/dev/null 2>&1; then
   printf '\n'
 fi
 
+section "wayland clipboard types by target"
+if command -v wl-paste >/dev/null 2>&1; then
+  for type in text/plain 'text/plain;charset=utf-8' 'text/plain;charset=UTF-8' UTF8_STRING; do
+    printf '%s: ' "$type"
+    timeout 2 wl-paste -t "$type" --no-newline 2>/dev/null | head -c 80 || true
+    printf '\n'
+  done
+fi
+
 section "x11 clipboard preview"
 if command -v xclip >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
   timeout 2 xclip -selection clipboard -o 2>/dev/null | head -c 200 || true
@@ -46,12 +55,26 @@ for name in codium vscodium ghostty; do
 done
 
 section "client protocols"
+if command -v mmsg >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  mmsg get all-clients 2>/dev/null |
+    jq -r '.[] | select(.appid | test("codium|vscodium|ghostty")) | "\(.pid) \(.appid) xwayland=\(.is_xwayland) monitor=\(.monitor)"' ||
+    true
+fi
 for pid in $(pgrep -f 'codium|vscodium|ghostty' || true); do
-  if [ -r "/proc/$pid/environ" ] &&
-    tr '\0' '\n' <"/proc/$pid/environ" | grep -q '^WAYLAND_DISPLAY='; then
+  if [ ! -r "/proc/$pid/environ" ]; then
+    printf '%s unknown\n' "$pid"
+    continue
+  fi
+  wayland="$(tr '\0' '\n' <"/proc/$pid/environ" | grep -c '^WAYLAND_DISPLAY=' || true)"
+  x11="$(tr '\0' '\n' <"/proc/$pid/environ" | grep -c '^DISPLAY=' || true)"
+  if [ "$wayland" -gt 0 ] && [ "$x11" -gt 0 ]; then
+    printf '%s wayland+x11\n' "$pid"
+  elif [ "$wayland" -gt 0 ]; then
     printf '%s wayland\n' "$pid"
-  else
+  elif [ "$x11" -gt 0 ]; then
     printf '%s x11\n' "$pid"
+  else
+    printf '%s unknown\n' "$pid"
   fi
 done
 

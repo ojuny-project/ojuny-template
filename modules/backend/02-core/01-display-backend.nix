@@ -11,7 +11,7 @@
     let
       autoRotate = import ../../../packages/auto-rotate.nix { inherit pkgs; };
       autoRotateOutputs = lib.attrNames (
-        lib.filterAttrs (_: output: output.autoRotation == "automatic") config.services.nix-settings-gui.monitors
+        lib.filterAttrs (_: output: output.autoRotation) config.services.nix-settings-gui.monitors
       );
 
       flagDefaults = {

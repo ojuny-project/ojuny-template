@@ -26,7 +26,7 @@ case "\$*" in
     ;;
   "get all-clients")
     if [ "\$(cat "\$STATE/visible")" = "1" ]; then
-      printf '[{"appid":"org.ojuny.quake","monitor":"%s","is_visible":true,"width":1344,"height":572,"x":0,"y":0}]\n' "\$(cat "\$STATE/monitor")"
+      printf '[{"appid":"org.ojuny.quake","monitor":"%s","is_visible":true,"is_focused":true,"width":1344,"height":572,"x":0,"y":0}]\n' "\$(cat "\$STATE/monitor")"
     else
       printf '[]\n'
     fi

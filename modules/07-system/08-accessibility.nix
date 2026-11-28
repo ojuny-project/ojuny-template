@@ -40,62 +40,14 @@
 
       osk = config.ojuny.accessibility.onScreenKeyboard;
       oskToggle = import ../../packages/osk-toggle.nix { inherit pkgs; };
-      oskColors = self.colors config.lib.stylix.colors;
-      oskColor = name: alpha: lib.removePrefix "#" oskColors.${name}.hex + alpha;
-      oskArgs = [
-        "--hidden"
-        "-H"
-        (toString osk.portraitHeight)
-        "-L"
-        (toString osk.landscapeHeight)
-        "-R"
-        (toString osk.rounding)
-        "--wayland-layer"
-        "top"
-        "--fn"
-        "${config.stylix.fonts.sansSerif.name} ${toString osk.fontSize}"
-        "--bg"
-        (oskColor "defaultBackground" "cc")
-        "--fg"
-        (oskColor "lighterBackground" "ff")
-        "--fg-sp"
-        (oskColor "selectionBackground" "ff")
-        "--press"
-        (oskColor "comments" "ff")
-        "--press-sp"
-        (oskColor "darkForeground" "ff")
-        "--swipe"
-        (oskColor "comments" "ff")
-        "--swipe-sp"
-        (oskColor "darkForeground" "ff")
-        "--text"
-        (oskColor "defaultForeground" "ff")
-        "--text-sp"
-        (oskColor "functions" "ff")
-        "--text-press"
-        (oskColor "defaultBackground" "ff")
-        "--text-press-sp"
-        (oskColor "defaultBackground" "ff")
-      ];
-
       oskTray = import ../../packages/osk-tray.nix { inherit pkgs oskToggle; };
-
-      oskRunner = pkgs.writeShellApplication {
-        name = "ojuny-osk-run";
-        runtimeInputs = [ pkgs.wvkbd ];
-        text = ''
-          auto="''${OJUNY_OSK_AUTO:-${if osk.auto then "1" else "0"}}"
-          args=( ${lib.escapeShellArgs oskArgs} )
-          if [ "$auto" = "1" ]; then
-            args+=(--auto)
-          fi
-          exec wvkbd-mobintl "''${args[@]}"
-        '';
-      };
 
     in
     {
-      imports = [ self.modules.nixos.system-accessibility-backend ];
+      imports = [
+        self.modules.nixos.system-accessibility-backend
+        inputs.wvkbd.nixosModules.default
+      ];
 
       config = {
 
@@ -311,23 +263,22 @@
           };
         };
 
+        services.ojuny-wvkbd = {
+          enable = osk.enable;
+          auto = osk.auto;
+          portraitHeight = osk.portraitHeight;
+          landscapeHeight = osk.landscapeHeight;
+          rounding = osk.rounding;
+          fontSize = osk.fontSize;
+          fontFamily = config.stylix.fonts.sansSerif.name;
+          colors = self.colors config.lib.stylix.colors;
+          target = "mango-session.target";
+        };
+
         environment.systemPackages = lib.mkIf osk.enable [
-          pkgs.wvkbd
           oskToggle
           oskTray
         ];
-
-        systemd.user.services.ojuny-osk = lib.mkIf osk.enable {
-          description = "Ojuny on-screen keyboard";
-          partOf = [ "mango-session.target" ];
-          wantedBy = [ "mango-session.target" ];
-          serviceConfig = {
-            Type = "exec";
-            ExecStart = "${oskRunner}/bin/ojuny-osk-run";
-            Restart = "on-failure";
-            RestartSec = 1;
-          };
-        };
 
         systemd.user.services.ojuny-osk-tray = lib.mkIf (osk.enable && osk.tray) {
           description = "Ojuny on-screen keyboard tray";

@@ -5,6 +5,11 @@ appid="${1:?app id is required}"
 title="${2:-none}"
 shift 2
 command="${*:-}"
+log="${XDG_RUNTIME_DIR:-/tmp}/ojuny-quake-toggle.log"
+
+logline() {
+  printf '%s %s\n' "$(date +%H:%M:%S)" "$*" >>"$log" 2>/dev/null || true
+}
 
 focused="$(mmsg get focusing-client 2>/dev/null | jq -r '.monitor // empty' 2>/dev/null || true)"
 if [ -z "$focused" ]; then
@@ -38,13 +43,16 @@ done
 client="$(client_json)"
 [ -n "$client" ] || exit 0
 monitor="$(printf '%s' "$client" | jq -r '.monitor // empty')"
+is_focused="$(printf '%s' "$client" | jq -r '.is_focused // false')"
 [ -n "$monitor" ] || exit 0
+logline "target=$focused client_monitor=$monitor focused=$is_focused"
 
-if [ "$monitor" != "$focused" ]; then
+if [ "$monitor" != "$focused" ] && [ "$is_focused" = "true" ]; then
   mmsg dispatch "tagmon,$focused" >/dev/null 2>&1 || true
   sleep 0.2
   client="$(client_json)"
   monitor="$(printf '%s' "$client" | jq -r '.monitor // empty')"
+  logline "after tagmon monitor=$monitor"
 fi
 
 geometry="$(mmsg get monitor "$monitor" 2>/dev/null || true)"
@@ -63,4 +71,14 @@ mh="$(printf '%s' "$geometry" | jq -r '.height // 0')"
 
 x=$((mx + (mw - width) / 2))
 y=$my
-mmsg dispatch "movewin,$x,$y" >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5; do
+  mmsg dispatch "movewin,$x,$y" >/dev/null 2>&1 || true
+  sleep 0.1
+  client="$(client_json)"
+  current_x="$(printf '%s' "$client" | jq -r '.x // -1')"
+  current_y="$(printf '%s' "$client" | jq -r '.y // -1')"
+  logline "movewin x=$x y=$y current_x=$current_x current_y=$current_y"
+  if [ "$current_x" -eq "$x" ] && [ "$current_y" -eq "$y" ]; then
+    break
+  fi
+done
